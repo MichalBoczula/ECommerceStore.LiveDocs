@@ -6,7 +6,7 @@
 - LD/1 provides the container, Compose, host checks and Docker Hub publication. LD/2 adds Allure 2 generation, version manifests and archive tooling. LD/3 configures Azure storage and deploys ACA; LD/4 integrates producers, Products first.
 - Preserve a stateless runtime: generated documentation is assembled before image creation. Never upload reports into a running replica.
 - Do not commit generated reports, test attachments, credentials or production payloads. Do not change service repositories, shared Terraform or GitHub secrets as incidental cleanup.
-- Deploy to an existing Azure Container Apps environment. This repository manages its dedicated container app, not the shared environment or resource group.
+- Deploy to an existing Azure Container Apps environment. `infra/foundation` owns persistent archive/identity resources in a separate remote state. `infra/app` is consumed by Infrastructure application state, which owns app creation/deletion and host configuration. LiveDocs CI updates only image/revision. Do not create shared environments or application groups here.
 
 ## Verification
 
@@ -15,6 +15,8 @@ Install `requirements-build.txt` with Python 3.12+ and run `bash scripts/verify.
 Preserve released versions and archived inputs. Keep Allure pinned in `tools/allure.json`; its CLI version is independent of the Allure.Reqnroll adapter version. Never add CI fixtures to production manifests.
 
 CI smoke-tests and scans the built image before publishing that same image. Deployment uses an immutable image digest and verifies the deployed commit identity. Never hide failed checks or claim an unrun check passed.
+
+Run pinned Terraform formatting, backend-disabled validation and mocked tests for both `infra/foundation` and `infra/app`. No CI test logs into Azure; readiness is an explicit main-only workflow after local bootstrap. Keep provider locks committed and raw plans/state outside Git. Fresh setup must leave automatic deployment disabled.
 
 ## Delivery
 

@@ -50,7 +50,8 @@ Limits are 100 MiB compressed, 500 MiB expanded and 10,000 ZIP entries.
 
 Short-lived GitHub Actions artifacts cannot be the source for rebuilding released
 documentation. Azure Blob is the durable archive. Account/container creation,
-RBAC and retention configuration are LD/3; LD/2 supplies the archive tools.
+RBAC and retention configuration are provided by LD/3's persistent Terraform root;
+live Azure setup is pending. LD/2 supplies the package/archive tools.
 
 After Azure CLI login with a Blob Data Contributor identity:
 
@@ -84,8 +85,10 @@ docker compose build
 
 The cache contains verified `<sha256>.zip` files. For public archives, prefetch
 without `--azure-auth`, or let Docker fetch the declared URLs. Never pass Azure
-credentials as build arguments. Private archive CI identity and prefetch will be
-configured with LD/3 before LD/4 publishes real manifests.
+credentials as build arguments. LD/3 prefetches private inputs on trusted main runs
+with read-only OIDC identity. Set the archive variables through its setup helper
+before LD/4 publishes real manifests. PR/feature runs validate manifest structure
+and use fixture packages; production input bytes are checked on main.
 
 ## Registering and updating versions
 

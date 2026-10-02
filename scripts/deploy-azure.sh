@@ -18,26 +18,16 @@ az containerapp env show --resource-group "$AZURE_RESOURCE_GROUP" \
   --name "$AZURE_CONTAINER_APPS_ENVIRONMENT" --output json > "$temp_dir/environment.json"
 environment_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$temp_dir/environment.json")"
 location="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["location"])' "$temp_dir/environment.json")"
-az containerapp list --resource-group "$AZURE_RESOURCE_GROUP" --output json > "$temp_dir/apps.json"
-action="$(python3 - "$temp_dir/apps.json" "$AZURE_CONTAINER_APP_NAME" "$environment_id" <<'PY'
-import json, sys
-apps = json.load(open(sys.argv[1]))
-app = next((item for item in apps if item['name'] == sys.argv[2]), None)
-if app:
-    props = app['properties']
-    actual = props.get('environmentId') or props.get('managedEnvironmentId')
-    if not actual or actual.lower() != sys.argv[3].lower():
-        raise SystemExit('Existing app belongs to a different ACA environment')
-print('update' if app else 'create')
-PY
-)"
+az containerapp show --resource-group "$AZURE_RESOURCE_GROUP" \
+  --name "$AZURE_CONTAINER_APP_NAME" --output json > "$temp_dir/app.json"
+python3 scripts/check-aca.py "$temp_dir/app.json" "$environment_id" >/dev/null
 revision="ld-${expected_sha:0:8}-${GITHUB_RUN_ID:-$(date -u +%s)}-${GITHUB_RUN_ATTEMPT:-1}"
-python3 scripts/render-aca.py --image "$image" --environment-id "$environment_id" \
-  --location "$location" --revision "$revision" > "$temp_dir/app.yaml"
-az containerapp "$action" --resource-group "$AZURE_RESOURCE_GROUP" \
-  --name "$AZURE_CONTAINER_APP_NAME" --yaml "$temp_dir/app.yaml" --output none
-fqdn="$(az containerapp show --resource-group "$AZURE_RESOURCE_GROUP" \
-  --name "$AZURE_CONTAINER_APP_NAME" --query properties.configuration.ingress.fqdn --output tsv)"
+# Terraform owns creation, deletion, ingress, scaling and probes. CI changes only image/revision.
+az containerapp update --resource-group "$AZURE_RESOURCE_GROUP" \
+  --name "$AZURE_CONTAINER_APP_NAME" --image "$image" --revision-suffix "$revision" --output none
+az containerapp show --resource-group "$AZURE_RESOURCE_GROUP" \
+  --name "$AZURE_CONTAINER_APP_NAME" --output json > "$temp_dir/deployed-app.json"
+fqdn="$(python3 scripts/check-aca.py "$temp_dir/deployed-app.json" "$environment_id" --expected-image "$image")"
 test -n "$fqdn"
 python3 scripts/smoke.py "https://$fqdn" --expected-sha "$expected_sha" --attempts 60
 echo "Deployed $image to https://$fqdn/livedoc/"
