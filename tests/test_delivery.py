@@ -64,6 +64,8 @@ class SmokeTests(unittest.TestCase):
             return 200, {"Content-Type": "text/html", "X-Content-Type-Options": "nosniff"}, b"ECommerceStore LiveDocs"
         if path == "/livedoc/styles.css":
             return 200, {"Content-Type": "text/css"}, b"body {}"
+        if path == "/livedoc/catalog.json":
+            return 200, {"Content-Type": "application/json"}, b'{"versions":[]}'
         if path == "/build-info.json":
             return 200, {}, json.dumps({"commitSha": "a" * 40, "builtAt": "now"}).encode()
         return 404, {}, b""

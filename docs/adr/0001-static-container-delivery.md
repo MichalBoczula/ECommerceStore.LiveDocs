@@ -30,8 +30,9 @@ Replicas do not mutate their documentation files. Restarts and new revisions ser
 the same snapshot. Report publication will rebuild the container. LD/2 must preserve
 released manifests and include the selected historical versions in each snapshot.
 
-LD/1 contains an honest empty portal. Allure 3 generation, durable artifacts,
-versioned project navigation and producer CI integration are separate tasks.
+LD/1 contains an honest empty portal. LD/2 adds Allure 2 generation, durable
+artifact tooling and versioned navigation (see ADR-0002). Azure setup/deployment
+is LD/3; producer CI integration is LD/4.
 
 The current base image tag floats to receive maintenance, and the build applies
 available Alpine distribution package updates before smoke testing and scanning.

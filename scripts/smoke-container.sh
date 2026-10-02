@@ -15,6 +15,7 @@ cleanup() {
 trap cleanup EXIT
 test "$(docker inspect --format '{{.Config.User}}' "$container_id")" = "101:101"
 docker exec "$container_id" nginx -t
+docker exec "$container_id" sh -c 'for tool in java python python3 allure; do if command -v "$tool"; then exit 1; fi; done'
 port="$(docker port "$container_id" 8080/tcp | head -n 1)"
 python3 scripts/smoke.py "http://$port" --expected-sha "$expected_sha"
 # Hide baked-in content to prove a missing site cannot report itself ready.

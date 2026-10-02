@@ -5,3 +5,8 @@ artifacts/
 reports/
 allure-results/
 allure-report/
+build-input/*
+!build-input/cache/
+build-input/cache/*
+!build-input/cache/.gitkeep
+.venv/

@@ -1,0 +1,6 @@
+{
+  "products": {"name": "Products", "repository": "MichalBoczula/ProductsCatalog"},
+  "users": {"name": "Users", "repository": "MichalBoczula/ECommerceStoreUsers"},
+  "invoices": {"name": "Invoices", "repository": "MichalBoczula/ECommerceStoreInvoice"},
+  "payments": {"name": "Payments", "repository": "MichalBoczula/ECommerceStorePayments"}
+}

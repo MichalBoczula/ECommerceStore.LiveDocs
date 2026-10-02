@@ -25,15 +25,69 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Check deployment and smoke regressions
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-build.txt
+      - name: Check manifests and preserve released versions
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_SHA" ]]; then BASE_SHA=$(git rev-parse HEAD^); fi
+          if [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "$BASE_SHA:manifests/portal.json" 2>/dev/null; then
+            git show "$BASE_SHA:manifests/portal.json" > "$RUNNER_TEMP/previous-portal.json"
+            python3 scripts/assemble.py --previous "$RUNNER_TEMP/previous-portal.json"
+          else
+            python3 scripts/assemble.py
+          fi
+      - name: Check assembly, deployment and smoke regressions
         run: python3 -m unittest discover -s tests -v
       - name: Check Bash and Compose
         run: |
           for script in scripts/*.sh; do bash -n "$script"; done
           docker compose config --quiet
 
+  documentation-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-build.txt
+      - name: Create isolated fixture archives and manifests
+        run: python3 tests/bundle_fixtures.py build-input/fixtures
+      - uses: docker/setup-buildx-action@v3
+      - name: Build actual Allure fixture image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: ecommerce-store-livedocs:fixtures
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            MANIFEST_DIRECTORY=build-input/fixtures/manifests
+            ARTIFACT_DIRECTORY=build-input/fixtures/cache
+      - name: Check generated reports and version isolation
+        run: |
+          set -euo pipefail
+          container=$(docker create ecommerce-store-livedocs:fixtures)
+          trap 'docker rm "$container" >/dev/null' EXIT
+          mkdir -p artifacts
+          docker cp "$container:/usr/share/nginx/html" artifacts/fixture-site
+          python3 scripts/check-fixture-site.py artifacts/fixture-site
+      - name: Check nested report routes and assets over real HTTP
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: bash scripts/smoke-container.sh ecommerce-store-livedocs:fixtures "$EXPECTED_SHA"
+
   container:
-    needs: validate
+    needs: [validate, documentation-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
