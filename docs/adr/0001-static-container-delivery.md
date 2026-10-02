@@ -33,6 +33,7 @@ released manifests and include the selected historical versions in each snapshot
 LD/1 contains an honest empty portal. Allure 3 generation, durable artifacts,
 versioned project navigation and producer CI integration are separate tasks.
 
-The current base image tag floats to receive maintenance; published images are
-immutable by digest. If byte-for-byte build reproduction becomes necessary,
-introduce a maintained base-digest update policy.
+The current base image tag floats to receive maintenance, and the build applies
+available Alpine distribution package updates before smoke testing and scanning.
+Published images are immutable by digest. If byte-for-byte build reproduction
+becomes necessary, introduce a maintained base-digest and package update policy.

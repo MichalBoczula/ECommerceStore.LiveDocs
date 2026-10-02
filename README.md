@@ -87,7 +87,8 @@ Required repository **secrets**:
 
 The Docker Hub repository must be **public** for the credential-free ACA pull
 implemented here. PRs never publish or authenticate to Azure. The base image uses
-the maintained `stable-alpine` tag; each published output is fixed by its digest.
+the maintained `stable-alpine` tag and applies available Alpine package updates
+before testing/scanning; each published output is fixed by its digest.
 
 ## Azure delivery
 

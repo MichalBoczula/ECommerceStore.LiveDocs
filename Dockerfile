@@ -1,5 +1,7 @@
 FROM nginxinc/nginx-unprivileged:stable-alpine
 USER 0:0
+# Apply available distribution fixes even when the upstream tag has not rebuilt.
+RUN apk upgrade --no-cache
 
 ARG VCS_REF=local
 ARG BUILD_DATE=local
