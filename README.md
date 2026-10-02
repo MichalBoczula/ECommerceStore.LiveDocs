@@ -4,7 +4,14 @@ LiveDocs assembles BDD scenarios, Allure results, OpenAPI contracts, business fl
 and validation policies into one stateless documentation container. Service
 repositories own the sources; this repository owns manifests, generation and delivery.
 
-## Current scope: LD/2
+## Current scope: LD/3 setup and delivery
+
+Azure is not yet provisioned. LD/3 supplies a persistent archive/identity Terraform
+root, an app module for Infrastructure state, private main-only archive prefetch
+and readiness/image deployment workflows. Follow [fresh Azure setup](docs/azure-deployment.md)
+after completing D/2. Infrastructure must provision the shared ACA environment and
+consume the app module before the first rollout. LiveDocs CI updates image/revision;
+Terraform owns app lifecycle, ingress, probes and scaling.
 
 Each manifest version contains independent project snapshots. For example,
 `/livedoc/v1/products/` and `/livedoc/v1/users/` coexist with `/livedoc/v2/products/`.
@@ -103,22 +110,25 @@ Required repository **secrets**:
 | `DOCKERHUB_TOKEN` | Docker Hub access token |
 
 The Docker Hub repository must be public for the credential-free ACA pull.
-PRs never publish or authenticate to Azure. Nginx applies available Alpine fixes
+PRs never publish or authenticate to Azure. With private production references,
+PRs build isolated fixtures; main validates the real archived inputs before publication.
+Nginx applies available Alpine fixes
 before scanning; published images are fixed by digest.
 
-Public Blob packages can be fetched during the build. Private packages must be
-prefetched into `build-input/cache` using Azure identity before the build; see the
-artifact contract. No Azure credentials or SAS URLs belong in an image or manifest.
+Production delivery uses the configured private Blob container and prefetched
+`build-input/cache` with read-only Azure identity. Archive references must match its
+project/commit/checksum paths. No Azure credentials or SAS URLs enter Docker or Git.
 
 ## Azure delivery and roadmap
 
-The deployment workflow stays disabled until Azure variables and OIDC are configured.
-See [Azure setup and rollout](docs/azure-deployment.md). LD/3 configures the archive
-and deploys to the existing ACA environment. Public verification checks commit identity.
+Setup leaves automatic delivery disabled. Run the read-only Azure readiness workflow
+after provisioning, then dispatch CI with `deploy=true` for first rollout.
+Missing resources/host drift fail deployment before image mutation. Public verification
+checks the expected commit. See [ADR-0003](docs/adr/0003-azure-foundation-and-app-ownership.md).
 
 | Task | Deliverable |
 | --- | --- |
 | LD/1 | Static container, health checks and Docker Hub publication — implemented |
 | LD/2 | Versioned manifests, archive tooling, Allure 2 generation and documentation pages |
-| LD/3 | Azure archive setup, ACA deployment and public endpoint verification |
+| LD/3 | Azure archive/identity setup and ACA delivery tooling; live provisioning/rollout pending |
 | LD/4 | Producer CI integration, Products first, then other services |

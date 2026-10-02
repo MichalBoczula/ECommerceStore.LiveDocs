@@ -1,0 +1,59 @@
+name: Verify Azure readiness
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: livedocs-azure-delivery
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_CONTAINER_APPS_ENVIRONMENT: ${{ vars.AZURE_CONTAINER_APPS_ENVIRONMENT }}
+      AZURE_CONTAINER_APP_NAME: ${{ vars.AZURE_CONTAINER_APP_NAME }}
+      AZURE_APP_DEPLOYMENT_READY: ${{ vars.AZURE_APP_DEPLOYMENT_READY }}
+      AZURE_ARCHIVE_STORAGE_ACCOUNT: ${{ vars.AZURE_ARCHIVE_STORAGE_ACCOUNT }}
+      AZURE_ARCHIVE_CONTAINER: ${{ vars.AZURE_ARCHIVE_CONTAINER }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-build.txt
+      - name: Validate configuration before Azure login
+        run: |
+          python3 scripts/validate-azure-config.py archive
+          python3 scripts/validate-azure-config.py deploy
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Verify private container read access
+        run: |
+          az storage container show --account-name "$AZURE_ARCHIVE_STORAGE_ACCOUNT" \
+            --name "$AZURE_ARCHIVE_CONTAINER" --auth-mode login --output none
+          python3 scripts/fetch-archives.py --azure-auth
+      - name: Verify Terraform host and public endpoint without mutation
+        run: |
+          set -euo pipefail
+          environment_id=$(az containerapp env show --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_CONTAINER_APPS_ENVIRONMENT" --query id --output tsv)
+          az containerapp show --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_CONTAINER_APP_NAME" --output json > "$RUNNER_TEMP/app.json"
+          fqdn=$(python3 scripts/check-aca.py "$RUNNER_TEMP/app.json" "$environment_id")
+          python3 scripts/smoke.py "https://$fqdn" --attempts 60
+          echo "Azure archive access and host verified: https://$fqdn/livedoc/" >> "$GITHUB_STEP_SUMMARY"
