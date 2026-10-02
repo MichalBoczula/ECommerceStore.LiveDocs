@@ -1,0 +1,17 @@
+services:
+  livedocs:
+    build:
+      context: .
+      args:
+        VCS_REF: local
+        BUILD_DATE: local
+    image: ecommerce-store-livedocs:local
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
