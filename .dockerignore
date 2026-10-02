@@ -4,3 +4,16 @@
 !nginx/**
 !site/
 !site/**
+!requirements-build.txt
+!tools/
+!tools/**
+!schemas/
+!schemas/**
+!scripts/
+!scripts/**
+!manifests/
+!manifests/**
+!build-input/
+!build-input/**
+**/__pycache__/
+**/*.pyc
