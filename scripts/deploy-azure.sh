@@ -17,7 +17,6 @@ trap 'rm -rf "$temp_dir"' EXIT
 az containerapp env show --resource-group "$AZURE_RESOURCE_GROUP" \
   --name "$AZURE_CONTAINER_APPS_ENVIRONMENT" --output json > "$temp_dir/environment.json"
 environment_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "$temp_dir/environment.json")"
-location="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["location"])' "$temp_dir/environment.json")"
 az containerapp show --resource-group "$AZURE_RESOURCE_GROUP" \
   --name "$AZURE_CONTAINER_APP_NAME" --output json > "$temp_dir/app.json"
 python3 scripts/check-aca.py "$temp_dir/app.json" "$environment_id" >/dev/null

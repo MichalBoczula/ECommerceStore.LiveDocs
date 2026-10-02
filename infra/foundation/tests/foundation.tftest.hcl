@@ -1,4 +1,5 @@
 mock_provider "azurerm" {
+  override_during = plan
   mock_resource "azurerm_resource_group" {
     defaults = { id = "/subscriptions/11111111-1111-1111-1111-111111111111/resourceGroups/rg-ecommerce-livedocs-archive" }
   }
