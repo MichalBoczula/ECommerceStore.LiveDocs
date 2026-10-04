@@ -2,16 +2,17 @@
 
 LiveDocs assembles BDD scenarios, Allure results, OpenAPI contracts, business flows
 and validation policies into one stateless documentation container. Service
-repositories own the sources; this repository owns manifests, generation and delivery.
+repositories own the sources; this repository owns manifests, generation, the static
+host and image publication. Application Terraform owns Azure deployment.
 
-## Current scope: LD/3 setup and delivery
+## Current scope: LD/3 image handoff
 
-Azure is not yet provisioned. LD/3 supplies a persistent archive/identity Terraform
-root, an app module for Infrastructure state, private main-only archive prefetch
-and readiness/image deployment workflows. Follow [fresh Azure setup](docs/azure-deployment.md)
-after completing D/2. Infrastructure must provision the shared ACA environment and
-consume the app module before the first rollout. LiveDocs CI updates image/revision;
-Terraform owns app lifecycle, ingress, probes and scaling.
+LiveDocs supplies an application image which serves all selected documentation.
+[ECommerceStore.Infrastructure](https://github.com/MichalBoczula/ECommerceStore.Infrastructure)
+creates the infrastructure in Terraform and deploys LiveDocs with the whole
+application. There is no Azure provisioning, deployment workflow or deployment
+identity in this repository. See the [container contract](docs/container-contract.md)
+for the image, port, probes, filesystem and immutable digest interface.
 
 Each manifest version contains independent project snapshots. For example,
 `/livedoc/v1/products/` and `/livedoc/v1/users/` coexist with `/livedoc/v2/products/`.
@@ -36,7 +37,8 @@ v1 and Products at v2, including a failed test.
 3. Commit its URL, checksum, size, source commit and workflow run to a version manifest.
 4. Generate all retained versions with the pinned Allure CLI and bake the completed
    portal into the image. Invalid or missing packages fail the build.
-5. Smoke-test and scan the image, publish to Docker Hub, and deploy by digest.
+5. Smoke-test and scan the image, then publish to Docker Hub. Application Terraform
+   deploys the selected digest with the other services.
 
 Git stores manifests and code. Packages, generated reports and attachments stay
 outside Git. The final Nginx container runs as **101:101** on **8080** and contains
@@ -109,26 +111,28 @@ Required repository **secrets**:
 | `DOCKERHUB_USERNAME` | Account with write access to the Docker Hub repository |
 | `DOCKERHUB_TOKEN` | Docker Hub access token |
 
-The Docker Hub repository must be public for the credential-free ACA pull.
-PRs never publish or authenticate to Azure. With private production references,
-PRs build isolated fixtures; main validates the real archived inputs before publication.
-Nginx applies available Alpine fixes
-before scanning; published images are fixed by digest.
+The Docker Hub repository must be public for credential-free pulls. PRs never
+publish; main publication requires the real production inputs. CI also uploads
+`livedocs-image/image.json` with the published digest, commit and build timestamp.
+Nginx applies available Alpine fixes before scanning. Infrastructure selects the
+published digest for rollout; LiveDocs needs no subscription, tenant or Azure identity.
 
-Production delivery uses the configured private Blob container and prefetched
-`build-input/cache` with read-only Azure identity. Archive references must match its
-project/commit/checksum paths. No Azure credentials or SAS URLs enter Docker or Git.
+Private archived inputs can be prefetched outside Docker into `build-input/cache`
+using the data tools in [the artifact contract](docs/artifact-contract.md).
+Automated private input retrieval remains part of LD/4 producer integration and
+must be configured before adding private production references. Current CI does
+not sign into Azure; unavailable inputs fail the build. No credentials or SAS URLs
+enter Docker or Git.
 
-## Azure delivery and roadmap
+## Ownership and roadmap
 
-Setup leaves automatic delivery disabled. Run the read-only Azure readiness workflow
-after provisioning, then dispatch CI with `deploy=true` for first rollout.
-Missing resources/host drift fail deployment before image mutation. Public verification
-checks the expected commit. See [ADR-0003](docs/adr/0003-azure-foundation-and-app-ownership.md).
+See [ADR-0003](docs/adr/0003-application-owned-deployment.md). Application
+Infrastructure owns Azure resources and the deployment lifecycle, including any
+archive storage and access grants. This repository publishes the image.
 
 | Task | Deliverable |
 | --- | --- |
 | LD/1 | Static container, health checks and Docker Hub publication — implemented |
-| LD/2 | Versioned manifests, archive tooling, Allure 2 generation and documentation pages |
-| LD/3 | Azure archive/identity setup and ACA delivery tooling; live provisioning/rollout pending |
-| LD/4 | Producer CI integration, Products first, then other services |
+| LD/2 | Versioned manifests, archive tooling, Allure 2 generation and documentation pages — implemented |
+| LD/3 | Image-only publication and documented Terraform consumption contract |
+| LD/4 | Producer CI integration and verified build inputs, Products first |

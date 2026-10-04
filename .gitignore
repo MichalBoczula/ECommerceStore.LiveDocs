@@ -10,11 +10,3 @@ build-input/*
 build-input/cache/*
 !build-input/cache/.gitkeep
 .venv/
-.terraform/
-*.tfstate
-*.tfstate.*
-*.tfplan
-*.auto.tfvars
-*.auto.tfvars.json
-backend.hcl
-crash.log

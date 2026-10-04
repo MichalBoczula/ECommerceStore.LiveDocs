@@ -50,8 +50,9 @@ Limits are 100 MiB compressed, 500 MiB expanded and 10,000 ZIP entries.
 
 Short-lived GitHub Actions artifacts cannot be the source for rebuilding released
 documentation. Azure Blob is the durable archive. Account/container creation,
-RBAC and retention configuration are provided by LD/3's persistent Terraform root;
-live Azure setup is pending. LD/2 supplies the package/archive tools.
+RBAC and retention configuration belong to ECommerceStore.Infrastructure's
+application Terraform. LiveDocs supplies package/archive data tools only; these
+tools consume existing storage and authenticated access.
 
 After Azure CLI login with a Blob Data Contributor identity:
 
@@ -71,8 +72,8 @@ URLs are stable HTTPS Azure Blob URLs without SAS parameters or credentials.
 Redirects are rejected. The build verifies archive checksum and size, including
 cached copies. Retain every package referenced by any supported manifest version.
 Do not apply blanket expiry to referenced release packages. Configure Blob
-versioning/soft delete and retention in LD/3. Content addressing and disabled
-overwrite prevent this publisher from replacing an object, but do not prevent
+versioning/soft delete and retention through application Infrastructure. Content
+addressing and disabled overwrite prevent this publisher from replacing an object, but do not prevent
 a storage administrator from deleting it.
 
 For a private container, authenticate outside Docker with a Blob Data Reader
@@ -85,10 +86,10 @@ docker compose build
 
 The cache contains verified `<sha256>.zip` files. For public archives, prefetch
 without `--azure-auth`, or let Docker fetch the declared URLs. Never pass Azure
-credentials as build arguments. LD/3 prefetches private inputs on trusted main runs
-with read-only OIDC identity. Set the archive variables through its setup helper
-before LD/4 publishes real manifests. PR/feature runs validate manifest structure
-and use fixture packages; production input bytes are checked on main.
+credentials as build arguments. Automated private retrieval is an LD/4 build-input
+integration concern; the current image CI does not log into Azure. Configure that
+input path before committing private production references. Main must validate
+real package bytes before publication; isolated fixtures only test the generator.
 
 ## Registering and updating versions
 

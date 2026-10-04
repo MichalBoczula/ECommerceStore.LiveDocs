@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 import urllib.parse
 from livedocs import materialize, validate_manifests
-from azure_config import configuration, archive_references
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--manifests", type=Path, default=Path("manifests"))
@@ -15,8 +14,6 @@ parser.add_argument("--cache", type=Path, default=Path("build-input/cache"))
 parser.add_argument("--azure-auth", action="store_true")
 args = parser.parse_args()
 portal, _ = validate_manifests(args.manifests)
-if args.azure_auth:
-    archive_references(portal, configuration("archive"))
 args.cache.mkdir(parents=True, exist_ok=True)
 for version in portal["versions"]:
     for reference in version["projects"]:
