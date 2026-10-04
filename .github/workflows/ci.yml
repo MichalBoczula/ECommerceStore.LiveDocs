@@ -1,9 +1,9 @@
-name: LiveDocs image CI and publication
+name: CI
 
 on:
-  pull_request:
-    branches: [main]
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -11,11 +11,32 @@ permissions:
   contents: read
 
 concurrency:
-  group: livedocs-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  validate:
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -25,27 +46,80 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r requirements-build.txt
-      - name: Check manifests and preserve released versions
+          cache: pip
+          cache-dependency-path: requirements-*.txt
+      - run: pip install -r requirements-ci.txt
+      - name: Verify manifests and preserve released versions
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$BASE_SHA" ]]; then BASE_SHA=$(git rev-parse HEAD^); fi
-          if [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && git cat-file -e "$BASE_SHA:manifests/portal.json" 2>/dev/null; then
-            git show "$BASE_SHA:manifests/portal.json" > "$RUNNER_TEMP/previous-portal.json"
-            python3 scripts/assemble.py --previous "$RUNNER_TEMP/previous-portal.json"
-          else
-            python3 scripts/assemble.py
-          fi
-      - name: Check assembly and smoke regressions
-        run: python3 -m unittest discover -s tests -v
-      - name: Check Bash and Compose
-        run: |
-          for script in scripts/*.sh; do bash -n "$script"; done
-          docker compose config --quiet
+        run: bash scripts/ci.sh source
+      - name: Check Python, Bash and Compose
+        run: bash scripts/ci.sh build
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-*.txt
+      - run: pip install -r requirements-ci.txt
+      - name: Audit direct and transitive Python dependencies
+        run: bash scripts/ci.sh audit
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-audit
+          path: artifacts/verification/dependency-audit.json
+          if-no-files-found: warn
+
+  assembly-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-*.txt
+      - run: pip install -r requirements-ci.txt
+      - name: Verify assembly suite and generator coverage
+        run: VERIFY_SUMMARY_FILE="$GITHUB_STEP_SUMMARY" bash scripts/ci.sh test assembly
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: assembly-test-results
+          path: artifacts/verification/assembly/
+          if-no-files-found: warn
+
+  hosting-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-*.txt
+      - run: pip install -r requirements-ci.txt
+      - name: Verify hosting and delivery regressions
+        run: VERIFY_SUMMARY_FILE="$GITHUB_STEP_SUMMARY" bash scripts/ci.sh test hosting
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hosting-test-results
+          path: artifacts/verification/hosting/
+          if-no-files-found: warn
 
   documentation-tests:
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -54,59 +128,52 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements-build.txt
-      - name: Create isolated fixture archives and manifests
-        run: python3 tests/bundle_fixtures.py build-input/fixtures
       - uses: docker/setup-buildx-action@v3
-      - name: Build actual Allure fixture image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          load: true
-          push: false
-          tags: ecommerce-store-livedocs:fixtures
-          build-args: |
-            VCS_REF=${{ github.sha }}
-            MANIFEST_DIRECTORY=build-input/fixtures/manifests
-            ARTIFACT_DIRECTORY=build-input/fixtures/cache
-      - name: Check generated reports and version isolation
-        run: |
-          set -euo pipefail
-          container=$(docker create ecommerce-store-livedocs:fixtures)
-          trap 'docker rm "$container" >/dev/null' EXIT
-          mkdir -p artifacts
-          docker cp "$container:/usr/share/nginx/html" artifacts/fixture-site
-          python3 scripts/check-fixture-site.py artifacts/fixture-site
-      - name: Check nested report routes and assets over real HTTP
+      - name: Verify actual Allure generation and fixture HTTP behavior
         env:
-          EXPECTED_SHA: ${{ github.sha }}
-        run: bash scripts/smoke-container.sh ecommerce-store-livedocs:fixtures "$EXPECTED_SHA"
+          VCS_REF: ${{ github.sha }}
+        run: VERIFY_SUMMARY_FILE="$GITHUB_STEP_SUMMARY" bash scripts/ci.sh test documentation
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: documentation-test-results
+          path: artifacts/verification/documentation/
+          if-no-files-found: warn
 
-  container:
-    needs: [validate, documentation-tests]
+  quality-gate:
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [build, assembly-tests, hosting-tests, documentation-tests, dependency-audit, secret-scan, dependency-review]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require every mandatory job
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python3 scripts/check-quality-gate.py
+
+  docker-image:
+    if: ${{ always() && !cancelled() && needs.quality-gate.result == 'success' }}
+    needs: quality-gate
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
       image: ${{ steps.publish.outputs.image }}
+    env:
+      VCS_REF: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - name: Set build timestamp
-        id: metadata
-        run: echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+        run: echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
       - name: Build image once
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          load: true
-          push: false
-          tags: ecommerce-store-livedocs:ci
-          build-args: |
-            VCS_REF=${{ github.sha }}
-            BUILD_DATE=${{ steps.metadata.outputs.date }}
-      - name: Smoke-test the actual container
-        env:
-          EXPECTED_SHA: ${{ github.sha }}
-        run: bash scripts/smoke-container.sh ecommerce-store-livedocs:ci "$EXPECTED_SHA"
+        run: bash scripts/ci.sh image
+      - name: Smoke-test the actual production container
+        run: bash scripts/ci.sh smoke ecommerce-store-livedocs:ci
       - name: Scan image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -115,6 +182,11 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: CRITICAL,HIGH
+      - name: Record scanned image identity
+        run: |
+          image_id="$(docker image inspect --format '{{.Id}}' ecommerce-store-livedocs:ci)"
+          test -n "$image_id"
+          echo "Scanned image ID: $image_id" >> "$GITHUB_STEP_SUMMARY"
       - name: Log in to Docker Hub
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -124,39 +196,10 @@ jobs:
       - name: Publish the tested and scanned image
         id: publish
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        run: |
-          set -euo pipefail
-          repository=mb0101/ecommerce-store-livedocs
-          scanned_id="$(docker image inspect --format '{{.Id}}' ecommerce-store-livedocs:ci)"
-          for tag in "$GITHUB_SHA" latest; do
-            docker tag ecommerce-store-livedocs:ci "$repository:$tag"
-            test "$scanned_id" = "$(docker image inspect --format '{{.Id}}' "$repository:$tag")"
-            docker push "$repository:$tag" | tee "$RUNNER_TEMP/push-$tag.log"
-          done
-          digest="$(awk '/digest: sha256:/ {print $3}' "$RUNNER_TEMP/push-$GITHUB_SHA.log" | tail -n 1)"
-          latest_digest="$(awk '/digest: sha256:/ {print $3}' "$RUNNER_TEMP/push-latest.log" | tail -n 1)"
-          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
-          test "$digest" = "$latest_digest"
-          echo "image=$repository@$digest" >> "$GITHUB_OUTPUT"
-          echo "Published tested image: \`$repository@$digest\`" >> "$GITHUB_STEP_SUMMARY"
-      - name: Write published image metadata for Infrastructure
+        run: bash scripts/ci.sh publish
+      - uses: actions/upload-artifact@v4
         if: steps.publish.outputs.image != ''
-        env:
-          PUBLISHED_IMAGE: ${{ steps.publish.outputs.image }}
-          BUILD_DATE: ${{ steps.metadata.outputs.date }}
-        run: |
-          python3 - <<'PYTHON'
-          import json, os
-          from pathlib import Path
-          Path("artifacts").mkdir(exist_ok=True)
-          metadata = {"schemaVersion": 1, "image": os.environ["PUBLISHED_IMAGE"],
-                      "commitSha": os.environ["GITHUB_SHA"], "builtAt": os.environ["BUILD_DATE"]}
-          Path("artifacts/image.json").write_text(json.dumps(metadata, indent=2) + "\n")
-          PYTHON
-      - name: Upload published image metadata
-        if: steps.publish.outputs.image != ''
-        uses: actions/upload-artifact@v4
         with:
           name: livedocs-image
-          path: artifacts/image.json
+          path: artifacts/verification/image.json
           if-no-files-found: error

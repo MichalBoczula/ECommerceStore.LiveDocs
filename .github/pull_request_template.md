@@ -1,13 +1,18 @@
 ## Behavior
 
-Describe the resulting host or delivery behavior and link the backlog task.
+Describe the resulting behavior, scope and backlog task. Note changed public
+contracts, version manifests or image inputs.
 
 ## Validation
 
-- Commands and CI checks actually run:
-- Checks not run and why:
+- Focused commands and CI checks actually run, with outcomes:
+- Full `scripts/verify.sh` result or unavailable prerequisites:
+- Remaining limitations:
 
-## Deployment
+## Operations
 
-- Required configuration:
-- Remaining scope or risks:
+- Required build inputs or publication configuration:
+- Image/runtime contract changes:
+- Documentation and relevant ADR updates:
+
+Azure provisioning and deployment belong to application Infrastructure.

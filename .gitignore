@@ -10,3 +10,6 @@ build-input/*
 build-input/cache/*
 !build-input/cache/.gitkeep
 .venv/
+
+.coverage*
+htmlcov/

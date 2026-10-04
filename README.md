@@ -1,79 +1,111 @@
 # ECommerceStore LiveDocs
 
-LiveDocs assembles BDD scenarios, Allure results, OpenAPI contracts, business flows
-and validation policies into one stateless documentation container. Service
-repositories own the sources; this repository owns manifests, generation, the static
-host and image publication. Application Terraform owns Azure deployment.
+## Purpose
 
-## Current scope: LD/3 image handoff
+LiveDocs assembles executable BDD scenarios, Allure results, OpenAPI contracts,
+business flows and validation policies into one stateless documentation image.
+Service repositories own their tests and sources; LiveDocs owns version manifests,
+generation, the static host and Docker Hub publication.
 
-LiveDocs supplies an application image which serves all selected documentation.
 [ECommerceStore.Infrastructure](https://github.com/MichalBoczula/ECommerceStore.Infrastructure)
-creates the infrastructure in Terraform and deploys LiveDocs with the whole
-application. There is no Azure provisioning, deployment workflow or deployment
-identity in this repository. See the [container contract](docs/container-contract.md)
-for the image, port, probes, filesystem and immutable digest interface.
+creates Azure resources in Terraform and deploys this image with the whole
+application. LiveDocs has no independent Azure deployment workflow or identity.
 
-Each manifest version contains independent project snapshots. For example,
-`/livedoc/v1/products/` and `/livedoc/v1/users/` coexist with `/livedoc/v2/products/`.
-Adding a registered project requires a manifest entry, not an Nginx configuration
-change. Development versions can advance; released versions cannot be changed or
-removed by a subsequent PR.
+## Engineering approach
 
-**Allure 2.46.1** is pinned with its official distribution SHA-256 in
-[`tools/allure.json`](tools/allure.json). ProductsCatalog documents
-`allure-commandline@2` and uses Allure.Reqnroll 2.14.1 with Reqnroll.xUnit 3.3.0.
-The CLI and .NET adapter have independent version numbers; both use Allure 2
-results. Products' CLI pin will be aligned during LD/4.
+### Designed contracts, executable sources
 
-The production manifest intentionally has an empty development `v1` until producer
-integration. CI uses clearly labelled, isolated fixtures for Products and Users at
-v1 and Products at v2, including a failed test.
+Producers supply raw Allure 2 results, Reqnroll feature files and generated API,
+flow and validation descriptions. LiveDocs validates source identity, package
+inventory, checksums and attachments before generating documentation. It displays
+failed BDD results faithfully; host readiness is independent of test status.
+See the [artifact contract](docs/artifact-contract.md).
 
-## Snapshot architecture
+### Versioned documentation
 
-1. Stage sources and raw Allure results in a validated ZIP package.
-2. Archive the package in durable Azure Blob storage at a content-addressed path.
-3. Commit its URL, checksum, size, source commit and workflow run to a version manifest.
-4. Generate all retained versions with the pinned Allure CLI and bake the completed
-   portal into the image. Invalid or missing packages fail the build.
-5. Smoke-test and scan the image, then publish to Docker Hub. Application Terraform
-   deploys the selected digest with the other services.
+Each image contains every retained manifest snapshot. `/livedoc/v1/products/`,
+`/livedoc/v1/users/` and `/livedoc/v2/products/` can coexist. Registering another
+project requires a registry and manifest entry, with no Nginx routing change.
+Development versions can advance; released versions cannot be changed or removed.
+The `latest` navigation pointer chooses a version without overwriting its history.
 
-Git stores manifests and code. Packages, generated reports and attachments stay
-outside Git. The final Nginx container runs as **101:101** on **8080** and contains
-no Java, Python or Allure installation. Replicas never modify their documentation.
+The production manifest has an empty development v1 until LD/5 integrates Products.
+Test fixtures use separate manifests for v1 Products/Users and v2 Products,
+including a failed result. They are never used for the published production image.
 
-See [artifact contract and publication](docs/artifact-contract.md),
-[ADR-0001](docs/adr/0001-static-container-delivery.md) and
-[ADR-0002](docs/adr/0002-versioned-documentation.md).
+## Architecture
 
-## Local development
+```mermaid
+flowchart TD
+    Sources[Service source bundles] --> Archive[Durable archive]
+    Archive --> Builder[Validated Allure generation]
+    Manifests[Version manifests] --> Builder
+    Builder --> Image[Static Nginx image]
+    Image --> Deployment[Application Terraform deployment]
+```
 
-Requirements: Docker with Compose, Bash and Python **3.12+**. Docker installs Java,
-Allure and build dependencies in its builder stage.
+| Component | Responsibility |
+| --- | --- |
+| `manifests/` and `schemas/` | Project registry, selected versions, identities and package contracts |
+| `scripts/livedocs.py` | Safe archive validation, immutable releases and atomic site assembly |
+| Docker builder | Pinned Allure generation; Java and Python stay in this stage |
+| `nginx/` and final image | Static documentation, health endpoints and build identity |
+| `scripts/ci.sh` | Portable verification commands used locally and by Actions |
+| Application Infrastructure | Terraform, storage/access lifecycle, ACA resources and deployment |
+
+Git stores code and manifests. Source ZIPs and generated reports remain outside
+Git. The final container contains Nginx and static content, with no Java, Python or
+Allure installation. Replicas never modify documentation; a new snapshot requires
+a new image. See the [ADR index](docs/adr/README.md).
+
+## Technology stack
+
+| Area | Technology |
+| --- | --- |
+| Host | Non-root Nginx, HTTP 8080 |
+| Generation | Allure CLI **2.46.1**, Java 17 in the builder |
+| Build tooling | Python 3.12, jsonschema |
+| Contracts | JSON Schema, content-addressed ZIP packages and manifests |
+| Tests | unittest, JUnit XML, coverage.py, actual Docker HTTP checks |
+| Containers | Docker, Docker Compose, Docker Hub |
+| CI | GitHub Actions, pip-audit, Dependency Review, Gitleaks, Trivy |
+
+Allure's official distribution SHA-256 is pinned in
+[`tools/allure.json`](tools/allure.json). ProductsCatalog uses `allure-commandline@2`
+and Allure.Reqnroll 2.14.1 with Reqnroll.xUnit 3.3.0. CLI and .NET adapter versions
+are independent; Products' CLI pin will be aligned during LD/5.
+
+### Repository structure
+
+```text
+manifests/
+schemas/
+scripts/
+site/
+nginx/
+tests/
+docs/
+  adr/
+```
+
+## Local startup
+
+### Prerequisites
+
+Docker with a running daemon and Compose, Bash, and Python **3.12+**. Docker installs
+Java and Allure in the builder; they are not needed on the host for Compose.
+Install `requirements-ci.txt` in a virtual environment for full local verification.
+
+### Run with Docker Compose
 
 ```bash
 docker compose up --build --detach
 python3 scripts/smoke.py http://127.0.0.1:8080 --expected-sha local
-docker compose down
 ```
 
-Open http://localhost:8080/livedoc/.
-
-Full source and container verification:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-build.txt
-bash scripts/verify.sh
-```
-
-Verification builds production and fixture images. Real HTTP checks cover version
-and project routes, Allure assets, JSON, test cases, attachments, missing paths and
-commit identity. The runtime must remain non-root and work with a read-only root
-filesystem. Hiding the site must return readiness **503** while the host remains live.
+Open <http://localhost:8080/livedoc/>. Stop with `docker compose down`.
+No runtime environment variables, secrets, database or service API connection are
+required. Compose uses a read-only root filesystem and writable `/tmp`.
 
 ## HTTP contract
 
@@ -83,56 +115,102 @@ filesystem. Hiding the site must return readiness **503** while the host remains
 | `/livedoc/` | Version navigation |
 | `/livedoc/latest/` | HTML redirect to the selected latest version |
 | `/livedoc/v1/` | Projects published in that version |
-| `/livedoc/v1/products/` | Provenance, BDD, API, flows and rules when published |
-| `/livedoc/v1/products/allure/` | Allure report with its own relative assets and data |
+| `/livedoc/v1/products/` | Provenance, BDD, API, flows and policies when published |
+| `/livedoc/v1/products/allure/` | Allure report with relative assets and data |
 | `/livedoc/catalog.json` | Selected versions and artifact references |
-| `/health/live` | Host is responding |
-| `/health/ready` | Baked-in content marker exists |
 | `/build-info.json` | LiveDocs commit SHA and build timestamp |
 | Unknown paths/assets | HTTP 404; no SPA fallback |
 
-Project pages link to downloadable source JSON and bundle metadata. Host readiness
-does not imply a passing BDD suite or a healthy upstream service API.
+Project pages link to source JSON and bundle metadata. Preserve `/livedoc/` through
+application ingress so report links and assets resolve.
 
-## CI and Docker Hub
+## Health checks
 
-PRs, pushes to `main` and manual dispatch run manifest/regression checks, real
-Allure fixture generation and container HTTP checks. CI compares released manifests
-with the prior revision. The production image is built once, smoke-tested and scanned
-with Trivy. That same image is published on `main` to:
+| Route | Meaning |
+| --- | --- |
+| `/health/live` | Nginx is responding; independent of documentation content |
+| `/health/ready` | Baked-in site marker exists; 503 when absent |
+
+Readiness does not mean that BDD tests passed or upstream APIs are healthy. The
+[container contract](docs/container-contract.md) describes probes, port, identity,
+filesystem and Terraform consumption.
+
+## Tests
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-ci.txt
+bash scripts/verify.sh
+```
+
+Local verification calls the same `scripts/ci.sh` entry points as Actions. Assembly
+regressions enforce archive integrity, safe extraction, attachment and identity
+checks, immutable releases and atomic generation. Hosting regressions cover HTTP
+failure detection, the quality gate and publication boundaries. The assembly suite
+requires at least **70% line coverage of `scripts/livedocs.py`**, with no lines
+excluded. This is generator coverage, not a percentage for all scripts or Nginx.
+
+Actual Docker tests generate Allure fixtures and check version/project routes,
+assets, test cases, attachments, 404s and commit identity. The host must run as
+101:101 with a read-only root and no build toolchain. A hidden site returns
+readiness 503 while liveness remains 200. See [local verification](docs/local-verification.md)
+for focused commands and artifact paths.
+
+## CI
+
+The workflow uses `scripts/ci.sh` for source contracts, Python/Bash/Compose checks,
+assembly and hosting suites, real Allure fixture generation, dependency audit,
+image build, smoke tests and publication. `scripts/verify.sh` shares those checks.
+Actions owns job dependencies, uploads, secrets and external scanners.
+
+PRs into and pushes to `main`, plus manual runs, require build, assembly, hosting,
+documentation, Python dependency audit and secret scan. PRs additionally require
+Dependency Review at high/critical severity. pip-audit checks direct/transitive
+build and CI requirements and fails on known advisories. JUnit XML, generator
+coverage, fixture evidence and summaries use `artifacts/verification/`.
+
+An explicit quality gate requires every applicable job to succeed. Only then does
+CI build the production image once, smoke-test it and scan high/critical fixable
+findings with Trivy. PRs never publish. Main pushes and manual main runs publish
+that same tested/scanned image to:
 
 - `mb0101/ecommerce-store-livedocs:latest`;
 - `mb0101/ecommerce-store-livedocs:<full-commit-sha>`.
 
-Required repository **secrets**:
-
-| Secret | Purpose |
+| Repository secret | Purpose |
 | --- | --- |
-| `DOCKERHUB_USERNAME` | Account with write access to the Docker Hub repository |
-| `DOCKERHUB_TOKEN` | Docker Hub access token |
+| `DOCKERHUB_USERNAME` | Account with write access to the image repository |
+| `DOCKERHUB_TOKEN` | Docker Hub publication token |
 
-The Docker Hub repository must be public for credential-free pulls. PRs never
-publish; main publication requires the real production inputs. CI also uploads
-`livedocs-image/image.json` with the published digest, commit and build timestamp.
-Nginx applies available Alpine fixes before scanning. Infrastructure selects the
-published digest for rollout; LiveDocs needs no subscription, tenant or Azure identity.
+CI verifies both tags use the scanned local image and pushes report the same digest.
+The publication summary and `livedocs-image/image.json` artifact identify the
+immutable image for Infrastructure. No Azure login or deployment occurs here.
+See [CI ADR](docs/adr/0004-ci-and-verification.md) and
+[Definition of Done](docs/definition-of-done.md).
 
-Private archived inputs can be prefetched outside Docker into `build-input/cache`
-using the data tools in [the artifact contract](docs/artifact-contract.md).
-Automated private input retrieval remains part of LD/4 producer integration and
-must be configured before adding private production references. Current CI does
-not sign into Azure; unavailable inputs fail the build. No credentials or SAS URLs
-enter Docker or Git.
+## Operations
 
-## Ownership and roadmap
+Use the published digest as application Terraform's image input. Public Docker Hub
+access permits credential-free pulls; private registry access belongs to
+Infrastructure. It also owns Azure storage, identities, ingress, probes and scaling.
 
-See [ADR-0003](docs/adr/0003-application-owned-deployment.md). Application
-Infrastructure owns Azure resources and the deployment lifecycle, including any
-archive storage and access grants. This repository publishes the image.
+Archive every package referenced by a retained manifest. Private inputs must be
+prefetched outside Docker into the verified cache; never pass credentials as build
+arguments. Automated private input retrieval is LD/5 work and must be wired before
+private production references are added. Missing or invalid packages fail the build;
+the existing deployed image continues serving its baked-in snapshot.
+
+## Architecture decisions
+
+The [ADR index](docs/adr/README.md) covers the static host, versioned Allure snapshots,
+application-owned deployment and shared CI verification. Contributors and agents
+should read [`AGENTS.md`](AGENTS.md) and [Definition of Done](docs/definition-of-done.md).
 
 | Task | Deliverable |
 | --- | --- |
 | LD/1 | Static container, health checks and Docker Hub publication — implemented |
-| LD/2 | Versioned manifests, archive tooling, Allure 2 generation and documentation pages — implemented |
-| LD/3 | Image-only publication and documented Terraform consumption contract |
-| LD/4 | Producer CI integration and verified build inputs, Products first |
+| LD/2 | Versioned manifests, archive tooling, Allure 2 and documentation pages — implemented |
+| LD/3 | Image handoff to application Terraform — implemented |
+| LD/4 | Invoice-style README/ADRs, portable CI, security and quality gates |
+| LD/5 | Producer CI integration and verified build inputs, Products first |

@@ -37,4 +37,10 @@ Archived inputs enable regeneration, while image digests preserve exact generate
 output. Allure upgrades require intentional validation.
 
 LD/3 defines the image contract; application Infrastructure owns storage access
-and deployment (ADR-0003). LD/4 connects Products first, then other producers.
+and deployment (ADR-0003). LD/5 connects Products first, then other producers.
+
+## Alternatives considered
+
+- Overwrite one latest report: loses release and project history.
+- Store generated reports in Git: grows the repository with rebuildable outputs and attachments.
+- Rebuild releases from short-lived workflow artifacts: loses required inputs when those artifacts expire.
