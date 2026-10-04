@@ -1,4 +1,4 @@
-name: LiveDocs CI and delivery
+name: LiveDocs image CI and publication
 
 on:
   pull_request:
@@ -6,11 +6,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      deploy:
-        description: Deploy the published image to the configured Azure environment
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -43,7 +38,7 @@ jobs:
           else
             python3 scripts/assemble.py
           fi
-      - name: Check assembly, deployment and smoke regressions
+      - name: Check assembly and smoke regressions
         run: python3 -m unittest discover -s tests -v
       - name: Check Bash and Compose
         run: |
@@ -144,39 +139,24 @@ jobs:
           test "$digest" = "$latest_digest"
           echo "image=$repository@$digest" >> "$GITHUB_OUTPUT"
           echo "Published tested image: \`$repository@$digest\`" >> "$GITHUB_STEP_SUMMARY"
-
-  deploy-azure:
-    needs: container
-    if: >-
-      github.ref == 'refs/heads/main' && github.event_name != 'pull_request' &&
-      (vars.AZURE_DEPLOY_ENABLED == 'true' || inputs.deploy == true)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
-      AZURE_CONTAINER_APPS_ENVIRONMENT: ${{ vars.AZURE_CONTAINER_APPS_ENVIRONMENT }}
-      AZURE_CONTAINER_APP_NAME: ${{ vars.AZURE_CONTAINER_APP_NAME }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validate Azure configuration
-        run: |
-          for setting in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_RESOURCE_GROUP AZURE_CONTAINER_APPS_ENVIRONMENT AZURE_CONTAINER_APP_NAME; do
-            test -n "${!setting}" || { echo "Configure repository variable $setting" >&2; exit 1; }
-          done
-      - name: Sign in to Azure using OIDC
-        uses: azure/login@v3
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Deploy immutable image and check public endpoint
+      - name: Write published image metadata for Infrastructure
+        if: steps.publish.outputs.image != ''
         env:
-          IMAGE: ${{ needs.container.outputs.image }}
-          EXPECTED_SHA: ${{ github.sha }}
-        run: bash scripts/deploy-azure.sh "$IMAGE" "$EXPECTED_SHA"
+          PUBLISHED_IMAGE: ${{ steps.publish.outputs.image }}
+          BUILD_DATE: ${{ steps.metadata.outputs.date }}
+        run: |
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          Path("artifacts").mkdir(exist_ok=True)
+          metadata = {"schemaVersion": 1, "image": os.environ["PUBLISHED_IMAGE"],
+                      "commitSha": os.environ["GITHUB_SHA"], "builtAt": os.environ["BUILD_DATE"]}
+          Path("artifacts/image.json").write_text(json.dumps(metadata, indent=2) + "\n")
+          PYTHON
+      - name: Upload published image metadata
+        if: steps.publish.outputs.image != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: livedocs-image
+          path: artifacts/image.json
+          if-no-files-found: error

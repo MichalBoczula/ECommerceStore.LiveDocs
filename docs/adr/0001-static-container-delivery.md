@@ -15,14 +15,14 @@ Serve files baked into a non-root Nginx container on port 8080. Build and valida
 the image in CI; smoke-test and scan it before publishing the same image to
 `mb0101/ecommerce-store-livedocs`. Keep commit tags and deploy by image digest.
 
-Use an existing ACA environment with OIDC delivery, explicit health probes,
-public HTTPS and HTTP scale-to-zero. The app host is independent of the service
-APIs. Readiness checks the assembled site marker; public rollout verification
-checks the baked-in source commit.
+Application Infrastructure deploys the published image with the other services
+and owns Terraform, ACA resources, ingress, probes and scaling. The app host is
+independent of service APIs. Readiness checks the assembled site marker; rollout
+verification can check the baked-in source commit.
 
-The repository owns the host and dedicated app configuration, not the shared
-resource group/environment. Git stores sources/configuration and later version
-manifests; generated reports/attachments remain outside Git.
+This repository owns the host and image publication. Git stores sources,
+configuration and version manifests; generated reports and attachments remain
+outside Git. See ADR-0003 and the container contract for deployment ownership.
 
 ## Consequences
 
@@ -31,8 +31,8 @@ the same snapshot. Report publication will rebuild the container. LD/2 must pres
 released manifests and include the selected historical versions in each snapshot.
 
 LD/1 contains an honest empty portal. LD/2 adds Allure 2 generation, durable
-artifact tooling and versioned navigation (see ADR-0002). Azure setup/deployment
-is LD/3; producer CI integration is LD/4.
+artifact tooling and versioned navigation (see ADR-0002). LD/3 defines the image handoff to application Terraform; producer CI integration
+is LD/4.
 
 The current base image tag floats to receive maintenance, and the build applies
 available Alpine distribution package updates before smoke testing and scanning.

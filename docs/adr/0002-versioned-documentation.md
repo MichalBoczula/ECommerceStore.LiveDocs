@@ -36,5 +36,5 @@ image. Retention must preserve referenced packages; ACA disk is not the archive.
 Archived inputs enable regeneration, while image digests preserve exact generated
 output. Allure upgrades require intentional validation.
 
-LD/3 configures Azure archive access and deploys the host. LD/4 connects Products
-first, then other producers.
+LD/3 defines the image contract; application Infrastructure owns storage access
+and deployment (ADR-0003). LD/4 connects Products first, then other producers.
