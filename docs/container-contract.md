@@ -67,6 +67,6 @@ and verified ZIP inputs in the build context, defaulting to `manifests` and
 credentials as build arguments. See [the artifact contract](artifact-contract.md).
 
 The initial production manifest has an empty development v1. Producer integration,
-Products first, remains LD/4. Private archive retrieval must be wired into the
+Products first, remains LD/5. Private archive retrieval must be wired into the
 build-input pipeline before adding private references to production manifests;
 missing inputs fail the build. Infrastructure owns any storage and access grants.

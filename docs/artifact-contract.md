@@ -86,7 +86,7 @@ docker compose build
 
 The cache contains verified `<sha256>.zip` files. For public archives, prefetch
 without `--azure-auth`, or let Docker fetch the declared URLs. Never pass Azure
-credentials as build arguments. Automated private retrieval is an LD/4 build-input
+credentials as build arguments. Automated private retrieval is an LD/5 build-input
 integration concern; the current image CI does not log into Azure. Configure that
 input path before committing private production references. Main must validate
 real package bytes before publication; isolated fixtures only test the generator.
@@ -142,5 +142,5 @@ or failed generation stop publication; the last deployed image stays available.
 Changing the renderer is a deliberate code/CI change: frozen manifests preserve
 source inputs; the old image digest preserves exact previously rendered files.
 
-LD/4 will adapt Products' Reqnroll output and structured exports to this contract
+LD/5 will adapt Products' Reqnroll output and structured exports to this contract
 and open a manifest PR. No service repository changes in LD/2.

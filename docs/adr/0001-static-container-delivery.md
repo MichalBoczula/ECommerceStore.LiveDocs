@@ -32,9 +32,14 @@ released manifests and include the selected historical versions in each snapshot
 
 LD/1 contains an honest empty portal. LD/2 adds Allure 2 generation, durable
 artifact tooling and versioned navigation (see ADR-0002). LD/3 defines the image handoff to application Terraform; producer CI integration
-is LD/4.
+is LD/5.
 
 The current base image tag floats to receive maintenance, and the build applies
 available Alpine distribution package updates before smoke testing and scanning.
 Published images are immutable by digest. If byte-for-byte build reproduction
 becomes necessary, introduce a maintained base-digest and package update policy.
+
+## Alternatives considered
+
+- Upload reports into running replicas: allows inconsistent snapshots after restarts or scaling.
+- Run Allure as a runtime service: adds a toolchain and mutable generation state to the host.
