@@ -1,0 +1,116 @@
+name: Import documentation
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing development version
+        default: v1
+        required: true
+        type: string
+      target-branch:
+        description: LiveDocs branch containing that version
+        default: main
+        required: true
+        type: string
+  schedule:
+    - cron: '17,47 * * * *'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: livedocs-import-${{ inputs.target-branch || vars.LIVEDOCS_IMPORT_BRANCH || 'main' }}
+  cancel-in-progress: false
+
+jobs:
+  import:
+    environment: livedocs-archive-build
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || vars.LIVEDOCS_IMPORT_ENABLED == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          path: tooling
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target-branch || vars.LIVEDOCS_IMPORT_BRANCH || 'main' }}
+          persist-credentials: false
+          path: target
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r tooling/requirements-build.txt
+      - name: Require import configuration
+        env:
+          CLIENT_ID: ${{ vars.LIVEDOCS_AZURE_CLIENT_ID }}
+          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ACCOUNT: ${{ vars.LIVEDOCS_STORAGE_ACCOUNT }}
+          APP_ID: ${{ vars.LIVEDOCS_APP_ID }}
+        run: |
+          for name in CLIENT_ID TENANT_ID SUBSCRIPTION_ID ACCOUNT APP_ID; do
+            test -n "${!name}" || { echo "Missing import variable: $name" >&2; exit 1; }
+          done
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.LIVEDOCS_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Verify producer provenance and prepare manifest
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACCOUNT: ${{ vars.LIVEDOCS_STORAGE_ACCOUNT }}
+          DOC_VERSION: ${{ inputs.version || vars.LIVEDOCS_IMPORT_VERSION || 'v1' }}
+        run: |
+          python3 tooling/scripts/import-bundle.py --account "$ACCOUNT" --version "$DOC_VERSION" \
+            --manifests target/manifests --cache inputs/cache
+      - name: Create repository-scoped PR token
+        if: steps.candidate.outputs.changed == 'true'
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.LIVEDOCS_APP_ID }}
+          private-key: ${{ secrets.LIVEDOCS_APP_PRIVATE_KEY }}
+          owner: MichalBoczula
+          repositories: ECommerceStore.LiveDocs
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Open documentation PR
+        if: steps.candidate.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          TARGET_BRANCH: ${{ inputs.target-branch || vars.LIVEDOCS_IMPORT_BRANCH || 'main' }}
+          DOC_VERSION: ${{ inputs.version || vars.LIVEDOCS_IMPORT_VERSION || 'v1' }}
+          SOURCE_RUN: ${{ steps.candidate.outputs.run_id }}
+          SOURCE_COMMIT: ${{ steps.candidate.outputs.commit }}
+        run: |
+          branch="docs/$DOC_VERSION/products-$SOURCE_RUN"
+          export DOC_IMPORT_BRANCH="$branch"
+          # Git credentials stay in the runner's credential helper, never a remote URL.
+          gh auth setup-git
+          cd target
+          git config user.name 'LiveDocs documentation bot'
+          git config user.email 'livedocs-bot@users.noreply.github.com'
+          git checkout -b "$branch"
+          git add manifests/portal.json
+          git commit -m "docs: import Products $DOC_VERSION from run $SOURCE_RUN"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            git fetch origin "$branch"
+            git diff --exit-code FETCH_HEAD -- manifests/portal.json
+          else
+            git push origin "$branch"
+          fi
+          existing="$(gh pr list --repo MichalBoczula/ECommerceStore.LiveDocs --head "$branch" --state all --json number --jq 'length')"
+          if [[ "$existing" != 0 ]]; then
+            echo 'Keeping the existing reviewed PR for this candidate.'
+            exit 0
+          fi
+          body_file="$RUNNER_TEMP/livedocs-pr.md"
+          python3 ../tooling/scripts/write-import-pr.py "$body_file"
+          gh pr create --repo MichalBoczula/ECommerceStore.LiveDocs --base "$TARGET_BRANCH" \
+            --head "$branch" --title "docs: Products $DOC_VERSION from run $SOURCE_RUN" --body-file "$body_file"

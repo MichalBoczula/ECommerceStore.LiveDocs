@@ -9,7 +9,8 @@ generation, the static host and Docker Hub publication.
 
 [ECommerceStore.Infrastructure](https://github.com/MichalBoczula/ECommerceStore.Infrastructure)
 creates Azure resources in Terraform and deploys this image with the whole
-application. LiveDocs has no independent Azure deployment workflow or identity.
+application. LiveDocs has no independent Azure deployment workflow. Its CI archive reader
+identity is provisioned by application Infrastructure.
 
 ## Engineering approach
 
@@ -29,7 +30,7 @@ project requires a registry and manifest entry, with no Nginx routing change.
 Development versions can advance; released versions cannot be changed or removed.
 The `latest` navigation pointer chooses a version without overwriting its history.
 
-The production manifest has an empty development v1 until LD/5 integrates Products.
+The production manifest has an empty development v1 until the first verified Products manifest PR is merged.
 Test fixtures use separate manifests for v1 Products/Users and v2 Products,
 including a failed result. They are never used for the published production image.
 
@@ -71,9 +72,9 @@ a new image. See the [ADR index](docs/adr/README.md).
 | CI | GitHub Actions, pip-audit, Dependency Review, Gitleaks, Trivy |
 
 Allure's official distribution SHA-256 is pinned in
-[`tools/allure.json`](tools/allure.json). ProductsCatalog uses `allure-commandline@2`
-and Allure.Reqnroll 2.14.1 with Reqnroll.xUnit 3.3.0. CLI and .NET adapter versions
-are independent; Products' CLI pin will be aligned during LD/5.
+[`tools/allure.json`](tools/allure.json). ProductsCatalog uses the same CLI pin locally and
+Allure.Reqnroll 2.14.1 with Reqnroll.xUnit 3.3.0. CLI and .NET adapter versions
+are independent.
 
 ### Repository structure
 
@@ -185,7 +186,7 @@ that same tested/scanned image to:
 
 CI verifies both tags use the scanned local image and pushes report the same digest.
 The publication summary and `livedocs-image/image.json` artifact identify the
-immutable image for Infrastructure. No Azure login or deployment occurs here.
+immutable image for Infrastructure. Azure OIDC login is limited to archive inputs; deployment stays in Infrastructure.
 See [CI ADR](docs/adr/0004-ci-and-verification.md) and
 [Definition of Done](docs/definition-of-done.md).
 
@@ -197,8 +198,9 @@ Infrastructure. It also owns Azure storage, identities, ingress, probes and scal
 
 Archive every package referenced by a retained manifest. Private inputs must be
 prefetched outside Docker into the verified cache; never pass credentials as build
-arguments. Automated private input retrieval is LD/5 work and must be wired before
-private production references are added. Missing or invalid packages fail the build;
+arguments. CI prefetch is required for nonempty manifests. See
+[producer integration](docs/producer-integration.md) for identities, protected
+environments, GitHub App setup and the first Products handoff. Missing or invalid packages fail the build;
 the existing deployed image continues serving its baked-in snapshot.
 
 ## Architecture decisions
@@ -212,5 +214,8 @@ should read [`AGENTS.md`](AGENTS.md) and [Definition of Done](docs/definition-of
 | LD/1 | Static container, health checks and Docker Hub publication — implemented |
 | LD/2 | Versioned manifests, archive tooling, Allure 2 and documentation pages — implemented |
 | LD/3 | Image handoff to application Terraform — implemented |
-| LD/4 | Invoice-style README/ADRs, portable CI, security and quality gates |
-| LD/5 | Producer CI integration and verified build inputs, Products first |
+| LD/4 | Invoice-style README/ADRs, portable CI, security and quality gates — implemented |
+| LD/5 | Blob-backed Products integration, manifest import and private build inputs — setup required |
+
+[LD/5 setup and delivery flow](docs/producer-integration.md) describes the separate
+`livedocs` container, opt-in scheduled imports, producer pin and archive access.

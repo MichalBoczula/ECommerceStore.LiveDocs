@@ -8,7 +8,7 @@ Read [README.md](README.md), [Definition of Done](docs/definition-of-done.md) an
 - LD/1 provides the container, Compose, host checks and Docker Hub publication. LD/2 adds Allure 2 generation, version manifests and archive tooling. LD/3 defines the image contract for application Terraform. LD/4 aligns README/ADRs and shared CI verification; LD/5 integrates producers, Products first.
 - Preserve a stateless runtime: generated documentation is assembled before image creation. Never upload reports into a running replica.
 - Do not commit generated reports, test attachments, credentials or production payloads. Do not change service repositories, shared Terraform or GitHub secrets as incidental cleanup.
-- ECommerceStore.Infrastructure owns all Terraform, Azure resources, identities, storage access and deployment together with the application. LiveDocs CI ends at image publication; do not add separate Azure provisioning, login or revision-update workflows here. Preserve the interface in `docs/container-contract.md`.
+- ECommerceStore.Infrastructure owns all Terraform, Azure resources, identities, storage access and deployment together with the application. LiveDocs CI ends at image publication; do not add Azure provisioning or revision-update workflows here. CI may use OIDC login solely for private archive inputs and bundle transfer (ADR-0005). Preserve the interface in `docs/container-contract.md`.
 
 ## Verification
 
@@ -18,7 +18,7 @@ Preserve released versions and archived inputs. Keep Allure pinned in `tools/all
 
 Do not skip required checks, use `continue-on-error`, or lower security/coverage gates to make CI green. The generator module has a 70% line coverage floor with no exclusions; do not claim this covers every script or Nginx. Required suites must run nonzero tests without failures or skips.
 
-CI smoke-tests and scans the built image before publishing that same image. Publication emits an immutable digest and image metadata for Infrastructure. Never hide failed checks or claim an unrun check passed. Keep private archive credentials outside Docker; LD/5 must supply verified inputs before real private manifest references are added.
+CI smoke-tests and scans the built image before publishing that same image. Publication emits an immutable digest and image metadata for Infrastructure. Never hide failed checks or claim an unrun check passed. Keep private archive credentials outside Docker. Private production references require configured archive identities and verified prefetch. Keep import tooling main-owned and protect PR archive reads with the documented GitHub environment.
 
 ## Delivery
 

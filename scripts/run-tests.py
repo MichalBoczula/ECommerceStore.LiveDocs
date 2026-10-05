@@ -27,6 +27,8 @@ if args.suite == "assembly":
     measurement.start()
 module = "test_assembly.py" if args.suite == "assembly" else "test_delivery.py"
 suite = unittest.defaultTestLoader.discover(str(ROOT / "tests"), pattern=module)
+if args.suite == "hosting":
+    suite.addTests(unittest.defaultTestLoader.discover(str(ROOT / "tests"), pattern="test_integration.py"))
 with (output / "results.xml").open("wb") as report:
     result = xmlrunner.XMLTestRunner(output=report, verbosity=2).run(suite)
 if measurement:

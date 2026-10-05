@@ -1,0 +1,62 @@
+name: Package producer documentation
+
+on:
+  workflow_call:
+    inputs:
+      tooling-ref:
+        type: string
+        required: true
+      project:
+        type: string
+        required: true
+      features:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: producer
+      - uses: actions/checkout@v4
+        with:
+          repository: MichalBoczula/ECommerceStore.LiveDocs
+          ref: ${{ inputs.tooling-ref }}
+          path: tooling
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r tooling/requirements-build.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: generated-contract
+          path: inputs/exports
+      - uses: actions/download-artifact@v4
+        with:
+          name: acceptance-allure-results
+          path: inputs/allure-results
+      - name: Package verified source inputs
+        env:
+          PROJECT: ${{ inputs.project }}
+          FEATURES: ${{ inputs.features }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_RUN_ID: ${{ github.run_id }}
+        run: |
+          python3 tooling/scripts/package-producer.py --source producer --exports inputs/exports \
+            --results inputs/allure-results --features "$FEATURES" --project "$PROJECT" \
+            --repository "$SOURCE_REPOSITORY" --commit "$SOURCE_COMMIT" --run-id "$SOURCE_RUN_ID" \
+            --output artifacts/documentation-bundle.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: documentation-bundle
+          path: artifacts/documentation-bundle.zip
+          if-no-files-found: error
+          retention-days: 7

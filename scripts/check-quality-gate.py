@@ -3,7 +3,7 @@
 import json
 import os
 
-REQUIRED = {"build", "assembly-tests", "hosting-tests", "documentation-tests",
+REQUIRED = {"build", "archive-inputs", "assembly-tests", "hosting-tests", "documentation-tests",
             "dependency-audit", "secret-scan"}
 
 
