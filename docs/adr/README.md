@@ -14,3 +14,4 @@ Backlog task numbers are separate from ADR numbers.
 | [0002](0002-versioned-documentation.md) | Accepted | Validated archive inputs and retained Allure project/version snapshots |
 | [0003](0003-application-owned-deployment.md) | Accepted | Application Infrastructure owns Terraform and Azure deployment |
 | [0004](0004-ci-and-verification.md) | Accepted | Portable verification, evidence, security and quality gates before publication |
+| [0005: Blob-backed producer integration](0005-producer-archive-integration.md) | Accepted for LD/5 |

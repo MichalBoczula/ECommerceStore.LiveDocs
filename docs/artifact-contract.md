@@ -58,15 +58,16 @@ After Azure CLI login with a Blob Data Contributor identity:
 
 ```bash
 python3 scripts/archive-bundle.py --file artifacts/products.zip \
-  --account YOUR_STORAGE_ACCOUNT --container livedocs \
+  --account YOUR_STORAGE_ACCOUNT --container livedocs --version v1 \
   --output artifacts/products-reference.json
 ```
 
 The uploader validates the package and writes it to
-`reports/<project>/<source-commit>/<package-sha256>.zip`. Overwrite is disabled;
-an existing object produces an upload conflict, rather than being silently trusted.
-The reference is written only after successful upload. An upload retry should
-reuse the original reference after verifying the existing object's checksum.
+`reports/<project>/<source-commit>/<package-sha256>.zip`, then publishes a discovery
+receipt under `candidates/<version>/<project>/<run-id>-<sha256>.json`. Overwrite is
+disabled. A retry verifies an existing object's bytes before accepting it. The
+output is a receipt with `schemaVersion`, `version` and `reference`; only its
+`reference` is inserted in the manifest. See [producer integration](producer-integration.md).
 
 URLs are stable HTTPS Azure Blob URLs without SAS parameters or credentials.
 Redirects are rejected. The build verifies archive checksum and size, including
@@ -80,15 +81,15 @@ For a private container, authenticate outside Docker with a Blob Data Reader
 identity and prefetch:
 
 ```bash
-python3 scripts/fetch-archives.py --azure-auth
+python3 scripts/fetch-archives.py --azure-auth --account YOUR_STORAGE_ACCOUNT --container livedocs
 docker compose build
 ```
 
 The cache contains verified `<sha256>.zip` files. For public archives, prefetch
 without `--azure-auth`, or let Docker fetch the declared URLs. Never pass Azure
-credentials as build arguments. Automated private retrieval is an LD/5 build-input
-integration concern; the current image CI does not log into Azure. Configure that
-input path before committing private production references. Main must validate
+credentials as build arguments. CI authenticates outside Docker and prefetches every selected private archive
+through the configured account/container boundary. Configure identities and
+protected environments before adding private production references. Main must validate
 real package bytes before publication; isolated fixtures only test the generator.
 
 ## Registering and updating versions
@@ -142,5 +143,6 @@ or failed generation stop publication; the last deployed image stays available.
 Changing the renderer is a deliberate code/CI change: frozen manifests preserve
 source inputs; the old image digest preserves exact previously rendered files.
 
-LD/5 will adapt Products' Reqnroll output and structured exports to this contract
-and open a manifest PR. No service repository changes in LD/2.
+LD/5 reusable producer workflows adapt Products' Reqnroll output and structured
+exports to this contract. The LiveDocs importer verifies source CI provenance and
+opens a manifest PR after operator setup.

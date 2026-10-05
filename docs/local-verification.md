@@ -55,3 +55,9 @@ and a high/critical Trivy image scan. Local `verify.sh` never logs into Docker H
 or publishes an image. Actions runs `ci.sh publish` only after successful scan
 and login on main; the command also refuses PR/feature contexts. Docker Hub
 credentials are supplied by the workflow, not by the scripts.
+
+LD/5 hosting checks also exercise producer packaging, storage boundaries,
+byte-verified archive retries, source-run provenance, discovery and frozen-version
+imports. Private nonempty manifests require `fetch-archives.py --azure-auth
+--account ACCOUNT --container livedocs` before local Docker builds. See the
+[setup guide](producer-integration.md) for protected CI environments and live checks.

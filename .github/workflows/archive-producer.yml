@@ -1,0 +1,67 @@
+name: Archive producer documentation
+
+on:
+  workflow_call:
+    inputs:
+      tooling-ref:
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  archive:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: MichalBoczula/ECommerceStore.LiveDocs
+          ref: ${{ inputs.tooling-ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-build.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: documentation-bundle
+          path: artifacts
+      - name: Require archive configuration
+        env:
+          CLIENT_ID: ${{ vars.LIVEDOCS_AZURE_CLIENT_ID }}
+          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ACCOUNT: ${{ vars.LIVEDOCS_STORAGE_ACCOUNT }}
+        run: |
+          for name in CLIENT_ID TENANT_ID SUBSCRIPTION_ID ACCOUNT; do
+            test -n "${!name}" || { echo "Missing archive variable: $name" >&2; exit 1; }
+          done
+      - name: Authenticate archive writer with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.LIVEDOCS_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Publish bundle and discovery receipt
+        env:
+          ACCOUNT: ${{ vars.LIVEDOCS_STORAGE_ACCOUNT }}
+          DOC_VERSION: ${{ inputs.version }}
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_RUN_ID: ${{ github.run_id }}
+        run: |
+          python3 scripts/archive-bundle.py --file artifacts/documentation-bundle.zip \
+            --account "$ACCOUNT" --container livedocs --version "$DOC_VERSION" \
+            --repository "$SOURCE_REPOSITORY" --commit "$SOURCE_COMMIT" --run-id "$SOURCE_RUN_ID" \
+            --output artifacts/documentation-reference.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: documentation-reference
+          path: artifacts/documentation-reference.json
+          if-no-files-found: error
