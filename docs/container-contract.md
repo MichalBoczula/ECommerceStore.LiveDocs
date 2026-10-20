@@ -1,8 +1,9 @@
 # LiveDocs container contract
 
 LiveDocs builds and publishes the documentation image. The
-[application Infrastructure repository](https://github.com/MichalBoczula/ECommerceStore.Infrastructure)
-owns Terraform, Azure resources and deployment together with the other services.
+[LiveDocs Terraform repository](https://github.com/MichalBoczula/ECommerceStore.LiveDocs.Terraform)
+owns persistent archive and disposable hosting roots. Hosting reuses the shared
+application ACA environment; archive access belongs only to CI identities.
 LiveDocs has no independent Azure deployment workflow or deployment identity.
 
 ## Image and publication
@@ -25,9 +26,9 @@ uploads `livedocs-image/image.json` as a GitHub Actions artifact:
 ```
 
 This metadata identifies an already published image; it is not a durable archive
-of documentation inputs. Infrastructure chooses when to roll out that digest.
+of documentation inputs. LiveDocs Terraform chooses when to roll out that digest.
 Keep the Docker Hub repository public for credential-free image pulls; private
-registry authentication, if selected, belongs to Infrastructure.
+registry authentication, if selected, belongs to LiveDocs Terraform.
 
 ## Runtime interface
 
@@ -43,7 +44,7 @@ registry authentication, if selected, belongs to Infrastructure.
 | Persistence | No volume, database or service API connection required |
 | Filesystem | Supports read-only root with writable `/tmp` for Nginx temporary files |
 | Logs | Nginx stdout/stderr |
-| Resources/scaling | CPU, memory, replica counts and probe timing are chosen in application Terraform |
+| Resources/scaling | CPU, memory, replica counts and probe timing are chosen in LiveDocs Terraform |
 
 ACA needs explicit probes; do not rely on the Docker `HEALTHCHECK` being imported.
 The host can start independently of Products, Users and other service APIs.
@@ -66,7 +67,9 @@ and verified ZIP inputs in the build context, defaulting to `manifests` and
 `build-input/cache`. `VCS_REF` and `BUILD_DATE` supply image identity. Never pass
 credentials as build arguments. See [the artifact contract](artifact-contract.md).
 
-The initial production manifest has an empty development v1. Producer integration,
-Products first, remains LD/5. Private archive retrieval must be wired into the
-build-input pipeline before adding private references to production manifests;
-missing inputs fail the build. Infrastructure owns any storage and access grants.
+The production manifest currently has an empty development v1. LD/5 private archive
+retrieval and Products import tooling are implemented; Azure resources, protected
+GitHub environments, variables and the import App still need setup. Follow the
+[LiveDocs Terraform guide](https://github.com/MichalBoczula/ECommerceStore.LiveDocs.Terraform)
+and [producer integration](producer-integration.md). Missing inputs fail the build;
+deploying the empty image alone does not publish a Products report.

@@ -12,6 +12,7 @@ Backlog task numbers are separate from ADR numbers.
 | --- | --- | --- |
 | [0001](0001-static-container-delivery.md) | Accepted; deployment ownership refined by 0003 | Stateless non-root Nginx host and immutable image publication |
 | [0002](0002-versioned-documentation.md) | Accepted | Validated archive inputs and retained Allure project/version snapshots |
-| [0003](0003-application-owned-deployment.md) | Accepted | Application Infrastructure owns Terraform and Azure deployment |
+| [0003](0003-application-owned-deployment.md) | Ownership superseded by 0006 | Application Infrastructure owns Terraform and Azure deployment |
 | [0004](0004-ci-and-verification.md) | Accepted | Portable verification, evidence, security and quality gates before publication |
-| [0005: Blob-backed producer integration](0005-producer-archive-integration.md) | Accepted for LD/5 |
+| [0005](0005-producer-archive-integration.md) | Accepted for LD/5; ownership updated by 0006 | Reviewed Blob-backed producer integration |
+| [0006](0006-dedicated-terraform-ownership.md) | Accepted | Dedicated LiveDocs Terraform repository with persistent archive and disposable hosting roots |
