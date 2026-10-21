@@ -7,10 +7,11 @@ business flows and validation policies into one stateless documentation image.
 Service repositories own their tests and sources; LiveDocs owns version manifests,
 generation, the static host and Docker Hub publication.
 
-[ECommerceStore.Infrastructure](https://github.com/MichalBoczula/ECommerceStore.Infrastructure)
-creates Azure resources in Terraform and deploys this image with the whole
-application. LiveDocs has no independent Azure deployment workflow. Its CI archive reader
-identity is provisioned by application Infrastructure.
+[ECommerceStore.LiveDocs.Terraform](https://github.com/MichalBoczula/ECommerceStore.LiveDocs.Terraform)
+owns Azure resources and manual image deployment. Its separate `archive/` root
+retains private bundles and CI identities; `hosting/` deploys the disposable ACA
+host in the shared application environment. LiveDocs CI publishes images and
+uses archive OIDC, but does not deploy ACA. See [ADR-0006](docs/adr/0006-dedicated-terraform-ownership.md).
 
 ## Engineering approach
 
@@ -42,7 +43,7 @@ flowchart TD
     Archive --> Builder[Validated Allure generation]
     Manifests[Version manifests] --> Builder
     Builder --> Image[Static Nginx image]
-    Image --> Deployment[Application Terraform deployment]
+    Image --> Deployment[LiveDocs Terraform deployment]
 ```
 
 | Component | Responsibility |
@@ -52,7 +53,7 @@ flowchart TD
 | Docker builder | Pinned Allure generation; Java and Python stay in this stage |
 | `nginx/` and final image | Static documentation, health endpoints and build identity |
 | `scripts/ci.sh` | Portable verification commands used locally and by Actions |
-| Application Infrastructure | Terraform, storage/access lifecycle, ACA resources and deployment |
+| LiveDocs Terraform | Separate archive and hosting states, storage/access lifecycle, ACA deployment |
 
 Git stores code and manifests. Source ZIPs and generated reports remain outside
 Git. The final container contains Nginx and static content, with no Java, Python or
@@ -186,15 +187,15 @@ that same tested/scanned image to:
 
 CI verifies both tags use the scanned local image and pushes report the same digest.
 The publication summary and `livedocs-image/image.json` artifact identify the
-immutable image for Infrastructure. Azure OIDC login is limited to archive inputs; deployment stays in Infrastructure.
+immutable image for LiveDocs Terraform. Azure OIDC login is limited to archive inputs; deployment stays in LiveDocs Terraform.
 See [CI ADR](docs/adr/0004-ci-and-verification.md) and
 [Definition of Done](docs/definition-of-done.md).
 
 ## Operations
 
-Use the published digest as application Terraform's image input. Public Docker Hub
+Use the published digest as the LiveDocs Terraform hosting image input. Public Docker Hub
 access permits credential-free pulls; private registry access belongs to
-Infrastructure. It also owns Azure storage, identities, ingress, probes and scaling.
+LiveDocs Terraform. It also owns Azure storage, identities, ingress, probes and scaling.
 
 Archive every package referenced by a retained manifest. Private inputs must be
 prefetched outside Docker into the verified cache; never pass credentials as build
@@ -213,7 +214,7 @@ should read [`AGENTS.md`](AGENTS.md) and [Definition of Done](docs/definition-of
 | --- | --- |
 | LD/1 | Static container, health checks and Docker Hub publication — implemented |
 | LD/2 | Versioned manifests, archive tooling, Allure 2 and documentation pages — implemented |
-| LD/3 | Image handoff to application Terraform — implemented |
+| LD/3 | Image handoff to LiveDocs Terraform — implemented |
 | LD/4 | Invoice-style README/ADRs, portable CI, security and quality gates — implemented |
 | LD/5 | Blob-backed Products integration, manifest import and private build inputs — setup required |
 

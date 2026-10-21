@@ -33,19 +33,24 @@ an existing candidate branch/PR without force-pushing or reopening a closed PR.
 Image CI fetches every retained package using a reader identity **outside Docker**,
 validates the cache and transfers the verified inputs to the production image job.
 Any unavailable or corrupt package blocks publication. Neither Java/Allure nor
-Azure identity is present in the static Nginx runtime. Application Terraform
-selects and deploys the new image digest together with the application.
+Azure identity is present in the static Nginx runtime. The LiveDocs Terraform hosting root
+selects and deploys the new image digest through a reviewed manual apply.
 
 ## One-time Azure and GitHub setup
 
-Azure resources belong to ECommerceStore.Infrastructure. Its existing persistent
-`foundations/livedocs` root creates the private archive. LD/5 adds writer/reader
-identities with roles scoped to the `livedocs` container. It does not give them
-access to a mobile-phone photos container or application deployment roles.
-The existing persistent root currently creates the account and `livedocs`
-container. A mobile-phone photos container can coexist in that same account with
-its own access roles. LD/5 does not create photo storage or migrate an existing
-photo account; application storage configuration remains in Infrastructure.
+Azure resources belong to
+[ECommerceStore.LiveDocs.Terraform](https://github.com/MichalBoczula/ECommerceStore.LiveDocs.Terraform).
+Its persistent `archive/` root creates a dedicated private account and `livedocs`
+container, Products writer and LiveDocs reader identities, and container-scoped
+roles. Its separate `hosting/` root deploys the baked image to the shared ACA
+environment and can be destroyed after a demo without deleting archive inputs.
+Products photo storage remains independent.
+
+The old `ECommerceStore.Infrastructure` was renamed
+`-DEPRECATED-ECommerceStore.Infrastructure` and contains a legacy
+`foundations/livedocs` root. If it was applied, inspect its actual state and archive
+before provisioning: follow the new repository's archive adoption checklist.
+Do not create two Terraform owners or repoint retained manifests to an empty account.
 
 **Configure protected GitHub environments before applying reader federation.**
 In LiveDocs create:
@@ -65,25 +70,26 @@ could otherwise request that subject in their own workflow. Build/import and PR
 readers use the two protected environment subjects. Neither environment deploys
 an application; its purpose is archive access protection.
 
-After merging the Infrastructure identity PR, initialize the existing foundation,
-create/review a fresh Terraform plan, apply it as the operator and read:
+From the new Terraform repository, provision the archive root following its
+README. Reader federation defaults off until the protected environments above
+exist. Then enable `enable_reader_federation`, review and apply a fresh archive
+plan, and read the non-secret output:
 
 ```powershell
-terraform "-chdir=foundations/livedocs" output -raw archive_storage_account
-terraform "-chdir=foundations/livedocs" output -raw products_livedocs_client_id
-terraform "-chdir=foundations/livedocs" output -raw livedocs_reader_client_id
-terraform "-chdir=foundations/livedocs" output -raw livedocs_tenant_id
-terraform "-chdir=foundations/livedocs" output -raw livedocs_subscription_id
+$archiveJson = (& $ecommerceTerraform '-chdir=archive' output -json archive_configuration) -join "`n"
+if ($LASTEXITCODE -ne 0) { throw 'Archive output lookup failed' }
+$archive = $archiveJson | ConvertFrom-Json
+$archive | Format-List
 ```
 
 Set **repository variables**, using the same archive account in both repositories:
 
 | Variable | ProductsCatalog | ECommerceStore.LiveDocs |
 | --- | --- | --- |
-| `AZURE_SUBSCRIPTION_ID` | Foundation subscription ID | Same ID |
-| `AZURE_TENANT_ID` | Foundation tenant ID | Same ID |
-| `LIVEDOCS_STORAGE_ACCOUNT` | Archive account | Same account |
-| `LIVEDOCS_AZURE_CLIENT_ID` | Products writer client ID | LiveDocs reader client ID |
+| `AZURE_SUBSCRIPTION_ID` | `subscription_id` | Same ID |
+| `AZURE_TENANT_ID` | `tenant_id` | Same ID |
+| `LIVEDOCS_STORAGE_ACCOUNT` | `storage_account_name` | Same account |
+| `LIVEDOCS_AZURE_CLIENT_ID` | `products_writer_client_id` | `reader_client_id` |
 | `LIVEDOCS_VERSION` | `v1` initially | Not used |
 | `LIVEDOCS_PUBLISH_ENABLED` | Set `true` after setup | Not used |
 | `LIVEDOCS_IMPORT_ENABLED` | Not used | Set `true` after the first successful manual import |
@@ -104,15 +110,15 @@ unchanged. OIDC uses IDs, not a long-lived Azure client secret or SAS.
 
 ## First publication and version branches
 
-1. Merge LiveDocs tooling, then Products' pinned integration and Infrastructure's
-   identity configuration. Products can package while archive publication is off.
+1. Merge LiveDocs tooling, then Products' pinned integration and LiveDocs Terraform's
+   archive/identity configuration. Products can package while archive publication is off.
 2. Complete the setup above and enable Products archive publication. A new master
    push runs full tests/build/security/image checks before uploading a real bundle.
 3. Wait for that producer workflow to finish successfully. In LiveDocs run
    **Import documentation** from main, with `v1` and target branch `main`.
 4. Review its manifest PR and approve private archive reads in the PR environment.
    Confirm full LiveDocs CI, merge, and inspect image publication metadata.
-5. Select the new digest through application Infrastructure. Enable scheduled
+5. Select the new digest through the LiveDocs Terraform hosting root. Enable scheduled
    imports after this first verified handoff. GitHub schedules may be delayed;
    manual import uses the same validation and is an immediate fallback.
 
@@ -122,16 +128,16 @@ entry, retain v1, allow that branch in `livedocs-archive-build`, then set Produc
 validate/generate the image; only main publishes SHA/latest production tags. Freeze
 released manifest entries through review. A source commit identifies the service
 image and documentation bundle; their separate CI/merge operations are not an
-atomic deployment transaction. Terraform coordinates the selected release images.
+atomic deployment transaction. Reviewed Terraform applies coordinate the selected service and documentation images.
 
 ## Retention and boundaries
 
 Preserve every bundle referenced by supported versions, plus any pending candidate
-PR. Versioning, soft delete and the existing management lock aid recovery; they
-are not a WORM policy. Blob Data Contributor can delete blobs. The publisher's
+PR. Versioning, soft delete and Terraform archive destruction guards aid retention;
+they are not a WORM policy. A legacy adopted archive may also retain its management lock. Blob Data Contributor can delete blobs. The publisher's
 no-overwrite and content checks do not prevent administrator deletion. Do not
-configure blanket expiry on referenced packages. Application teardown must retain
-this foundation and its state.
+configure blanket expiry on referenced packages. Demo hosting teardown must retain
+the archive root, its resources and its state.
 
 Only synthetic test data should appear in acceptance attachments. Generated HTML
 is baked into the image, not committed to Git or uploaded from a running replica.
