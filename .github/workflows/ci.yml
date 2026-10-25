@@ -63,7 +63,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      id-token: write
     outputs:
       required: ${{ steps.inputs.outputs.required }}
     steps:
@@ -79,26 +78,15 @@ jobs:
         if: steps.inputs.outputs.required == 'true'
         env:
           TRUSTED: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-          CLIENT_ID: ${{ vars.LIVEDOCS_AZURE_CLIENT_ID }}
-          TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-          SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          ACCOUNT: ${{ vars.LIVEDOCS_STORAGE_ACCOUNT }}
+          AZURE_STORAGE_SAS_TOKEN: ${{ secrets.LIVEDOCS_STORAGE_SAS_TOKEN }}
         run: |
           test "$TRUSTED" = true || { echo 'Fork PRs cannot read private documentation archives.' >&2; exit 1; }
-          for name in CLIENT_ID TENANT_ID SUBSCRIPTION_ID ACCOUNT; do
-            test -n "${!name}" || { echo "Missing archive variable: $name" >&2; exit 1; }
-          done
-      - name: Authenticate archive reader with OIDC
-        if: steps.inputs.outputs.required == 'true'
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.LIVEDOCS_AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          test -n "$AZURE_STORAGE_SAS_TOKEN" || { echo 'Missing repository secret: LIVEDOCS_STORAGE_SAS_TOKEN' >&2; exit 1; }
       - name: Fetch private inputs outside Docker
         if: steps.inputs.outputs.required == 'true'
         env:
-          ACCOUNT: ${{ vars.LIVEDOCS_STORAGE_ACCOUNT }}
+          ACCOUNT: ${{ vars.LIVEDOCS_STORAGE_ACCOUNT || 'stecproductsdevmb261013' }}
+          AZURE_STORAGE_SAS_TOKEN: ${{ secrets.LIVEDOCS_STORAGE_SAS_TOKEN }}
         run: python3 scripts/fetch-archives.py --azure-auth --account "$ACCOUNT" --container livedocs
       - uses: actions/upload-artifact@v4
         if: steps.inputs.outputs.required == 'true'

@@ -58,6 +58,8 @@ credentials are supplied by the workflow, not by the scripts.
 
 LD/5 hosting checks also exercise producer packaging, storage boundaries,
 byte-verified archive retries, source-run provenance, discovery and frozen-version
-imports. Private nonempty manifests require `fetch-archives.py --azure-auth
---account ACCOUNT --container livedocs` before local Docker builds. See the
-[setup guide](producer-integration.md) for protected CI environments and live checks.
+imports. Private nonempty manifests require `python3 scripts/fetch-archives.py
+--azure-auth --account stecproductsdevmb261013 --container livedocs` before local
+Docker builds. Set `AZURE_STORAGE_SAS_TOKEN` privately in the terminal environment,
+or use an existing Azure CLI login with archive read access. The SAS stays outside
+Docker and out of manifests. See the [setup guide](producer-integration.md).

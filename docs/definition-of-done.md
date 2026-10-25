@@ -10,6 +10,6 @@ path already has test coverage.
 - Build, assembly, hosting, documentation, dependency audit and secret scanning succeed. PR Dependency Review must succeed. Do not use `continue-on-error`, skip jobs or lower security/coverage gates to obtain a green result.
 - The image job starts after the explicit quality gate, smoke-tests and scans its one built image, then publishes those same bytes on main. SHA/latest tags report one digest and image metadata identifies the source commit.
 - Update README, contracts and the ADR index when behavior or decisions change. Preserve repository-local ADR numbers and the shared record format.
-- Keep generated reports, test fixtures, credentials and production payloads out of Git. Private archive credentials stay outside Docker. Azure resources and deployment belong to ECommerceStore.LiveDocs.Terraform under ADR-0006; producer integration is LD/5.
+- Keep generated reports, test fixtures, credentials and production payloads out of Git. Private archive credentials stay outside Docker. Azure resources and deployment belong to ECommerceStore.Terraform under ADR-0007; producer integration is LD/5.
 
 The PR is ready to merge when applicable checks pass and remaining limits are recorded.

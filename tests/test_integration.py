@@ -116,6 +116,14 @@ class IntegrationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "dedicated"):
             delivery.storage("testarchive", "photos")
 
+    def test_storage_uses_environment_sas_without_exposing_it_in_arguments(self):
+        with patch.dict(delivery.os.environ, {}, clear=True):
+            self.assertEqual(delivery.storage("testarchive", "livedocs")[:2], ["--auth-mode", "login"])
+        with patch.dict(delivery.os.environ, {"AZURE_STORAGE_SAS_TOKEN": "test-only-sas"}):
+            args = delivery.storage("testarchive", "livedocs")
+            self.assertEqual(args, ["--account-name", "testarchive", "--container-name", "livedocs"])
+            self.assertNotIn("test-only-sas", args)
+
     def test_candidate_rejects_other_versions_projects_accounts_and_paths(self):
         self.assertEqual(delivery.check_candidate(self.receipt, "v1", "products", "testarchive", "livedocs"),
                          self.reference)
