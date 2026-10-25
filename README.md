@@ -7,11 +7,12 @@ business flows and validation policies into one stateless documentation image.
 Service repositories own their tests and sources; LiveDocs owns version manifests,
 generation, the static host and Docker Hub publication.
 
-[ECommerceStore.LiveDocs.Terraform](https://github.com/MichalBoczula/ECommerceStore.LiveDocs.Terraform)
-owns Azure resources and manual image deployment. Its separate `archive/` root
-retains private bundles and CI identities; `hosting/` deploys the disposable ACA
-host in the shared application environment. LiveDocs CI publishes images and
-uses archive OIDC, but does not deploy ACA. See [ADR-0006](docs/adr/0006-dedicated-terraform-ownership.md).
+[ECommerceStore.Terraform](https://github.com/MichalBoczula/ECommerceStore.Terraform)
+owns Azure resources and manual image deployment in the store's shared root/state.
+The private `stecproductsdevmb261013/livedocs` container retains source bundles;
+the LiveDocs ACA serves documentation baked into its image. CI uses a container
+SAS for archive inputs and publishes images. See
+[ADR-0007](docs/adr/0007-shared-store-products-publication.md).
 
 ## Engineering approach
 
@@ -31,7 +32,10 @@ project requires a registry and manifest entry, with no Nginx routing change.
 Development versions can advance; released versions cannot be changed or removed.
 The `latest` navigation pointer chooses a version without overwriting its history.
 
-The production manifest has an empty development v1 until the first verified Products manifest PR is merged.
+The production manifest selects the verified Products bundle from master workflow
+run [40205595842](https://github.com/MichalBoczula/ProductsCatalog/actions/runs/40205595842)
+in development v1. Its BDD documentation is served at `/livedoc/v1/products/`, with
+Allure at `/livedoc/v1/products/allure/` after deploying the new image.
 Test fixtures use separate manifests for v1 Products/Users and v2 Products,
 including a failed result. They are never used for the published production image.
 
@@ -53,7 +57,7 @@ flowchart TD
 | Docker builder | Pinned Allure generation; Java and Python stay in this stage |
 | `nginx/` and final image | Static documentation, health endpoints and build identity |
 | `scripts/ci.sh` | Portable verification commands used locally and by Actions |
-| LiveDocs Terraform | Separate archive and hosting states, storage/access lifecycle, ACA deployment |
+| ECommerceStore.Terraform | Shared store resources/state, private archive container and ACA deployment |
 
 Git stores code and manifests. Source ZIPs and generated reports remain outside
 Git. The final container contains Nginx and static content, with no Java, Python or
@@ -184,24 +188,30 @@ that same tested/scanned image to:
 | --- | --- |
 | `DOCKERHUB_USERNAME` | Account with write access to the image repository |
 | `DOCKERHUB_TOKEN` | Docker Hub publication token |
+| `LIVEDOCS_STORAGE_SAS_TOKEN` | Complete container SAS query string; image CI needs read permission |
 
 CI verifies both tags use the scanned local image and pushes report the same digest.
 The publication summary and `livedocs-image/image.json` artifact identify the
-immutable image for LiveDocs Terraform. Azure OIDC login is limited to archive inputs; deployment stays in LiveDocs Terraform.
+immutable image for ECommerceStore.Terraform. Private archives are downloaded and
+validated outside Docker using the SAS environment variable. No Azure login or
+identity variables are needed by image CI. `LIVEDOCS_STORAGE_ACCOUNT` optionally
+overrides the default `stecproductsdevmb261013` account. Deployment stays in Terraform.
 See [CI ADR](docs/adr/0004-ci-and-verification.md) and
 [Definition of Done](docs/definition-of-done.md).
 
 ## Operations
 
-Use the published digest as the LiveDocs Terraform hosting image input. Public Docker Hub
-access permits credential-free pulls; private registry access belongs to
-LiveDocs Terraform. It also owns Azure storage, identities, ingress, probes and scaling.
+Use the published digest for `app_images.livedocs` in ECommerceStore.Terraform,
+keeping the other application images unchanged. Review a fresh plan and apply it.
+Public Docker Hub access permits credential-free pulls; Terraform owns registry
+configuration, Azure storage, ingress, probes and scaling.
 
 Archive every package referenced by a retained manifest. Private inputs must be
 prefetched outside Docker into the verified cache; never pass credentials as build
 arguments. CI prefetch is required for nonempty manifests. See
-[producer integration](docs/producer-integration.md) for identities, protected
-environments, GitHub App setup and the first Products handoff. Missing or invalid packages fail the build;
+[producer integration](docs/producer-integration.md) for the SAS setup and Products
+handoff. A manifest PR is sufficient; the optional import App is not needed.
+Missing or invalid packages fail the build;
 the existing deployed image continues serving its baked-in snapshot.
 
 ## Architecture decisions
@@ -216,7 +226,7 @@ should read [`AGENTS.md`](AGENTS.md) and [Definition of Done](docs/definition-of
 | LD/2 | Versioned manifests, archive tooling, Allure 2 and documentation pages — implemented |
 | LD/3 | Image handoff to LiveDocs Terraform — implemented |
 | LD/4 | Invoice-style README/ADRs, portable CI, security and quality gates — implemented |
-| LD/5 | Blob-backed Products integration, manifest import and private build inputs — setup required |
+| LD/5 | First Products reference and SAS-backed image inputs; optional importer remains off |
 
 [LD/5 setup and delivery flow](docs/producer-integration.md) describes the separate
-`livedocs` container, opt-in scheduled imports, producer pin and archive access.
+`livedocs` container, producer pin, archive access and optional scheduled imports.

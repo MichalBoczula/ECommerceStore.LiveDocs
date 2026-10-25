@@ -2,144 +2,131 @@
 
 ## Delivery flow
 
-Products' CI exports OpenAPI, business flows, validation policies and operation
-links from the same source checkout as its acceptance tests. It uploads raw
-Allure results, then calls a commit-pinned LiveDocs reusable packaging workflow.
-The resulting ZIP must validate before Products' quality gate permits its image
-build, scan and publication. Only a successful master image job permits the
-optional archive job. PRs package real inputs but never upload to Azure.
+Products CI exports OpenAPI, business flows, validation policies, operation links,
+Reqnroll features and actual Allure results from one source checkout. Its pinned
+LiveDocs packaging workflow validates the source ZIP before the Products quality
+gate. Successful master image publication automatically uploads the bundle;
+PRs never upload to Azure. There is no publication enable variable.
 
-The archive writer uploads `reports/products/<commit>/<sha256>.zip` and then a
-small discovery receipt at `candidates/v1/products/<run-id>-<sha256>.json` in the
-private **livedocs** container. Both uploads refuse overwrite; retries accept
-existing objects only after byte-for-byte verification. The receipt contains the
-manifest reference, not credentials. Multiple different bundles for one run are
-ambiguous and require operator resolution before import.
+The archive writer uploads `reports/products/<commit>/<sha256>.zip`, then a
+receipt at `candidates/v1/products/<run-id>-<sha256>.json` in private container
+`stecproductsdevmb261013/livedocs`. Retries download existing objects and compare
+bytes; different content is refused. Neither URLs nor receipts contain credentials.
 
-LiveDocs' import workflow runs manually or every 30 minutes when explicitly
-enabled. It reads receipts, chooses a newer successful Products master push in
-`.github/workflows/dotnet.yml`, verifies its source SHA and run identity, downloads
-the package and validates checksums, inventory and source identity. It changes
-only the selected development manifest and opens a PR in this repository.
-Products has no GitHub write access to LiveDocs. In-progress/failed source runs
-are never imported. Imports cannot modify released versions or automatically
-create a new version.
+LiveDocs selects a receipt's `reference` object in `manifests/portal.json` through
+a PR. Image CI downloads every retained archive outside Docker, verifies its
+checksum, size, inventory, attachments and source identity, and transfers the
+verified cache to the image job. Allure HTML is generated in the Docker builder.
+The final Nginx image is smoke-tested and scanned before Docker Hub publication.
+A missing or corrupt archive blocks publication; the deployed image keeps serving
+its existing snapshot.
 
-The PR token comes from a GitHub App installed only in LiveDocs. Normal PR checks
-therefore run; the default GITHUB_TOKEN would suppress workflow-triggering PR
-events. GitHub owns reviews/merge, not the importer. Repeated discovery preserves
-an existing candidate branch/PR without force-pushing or reopening a closed PR.
+## Current Products snapshot
 
-Image CI fetches every retained package using a reader identity **outside Docker**,
-validates the cache and transfers the verified inputs to the production image job.
-Any unavailable or corrupt package blocks publication. Neither Java/Allure nor
-Azure identity is present in the static Nginx runtime. The LiveDocs Terraform hosting root
-selects and deploys the new image digest through a reviewed manual apply.
+The development v1 manifest selects successful Products master push
+[40205595842](https://github.com/MichalBoczula/ProductsCatalog/actions/runs/40205595842):
 
-## One-time Azure and GitHub setup
+| Field | Value |
+| --- | --- |
+| Source commit | `48154e5566402b65cb686c4c7eda6bed1d30d707` |
+| Bundle SHA-256 | `f64189b99cfe8355440b0b0c99c72576e263db3729104a40119ca9a198eeaf7d` |
+| Bundle size | 216581 bytes |
+| Storage account / container | `stecproductsdevmb261013` / `livedocs` |
+| Project page | `/livedoc/v1/products/` |
+| Allure report | `/livedoc/v1/products/allure/` |
 
-Azure resources belong to
-[ECommerceStore.LiveDocs.Terraform](https://github.com/MichalBoczula/ECommerceStore.LiveDocs.Terraform).
-Its persistent `archive/` root creates a dedicated private account and `livedocs`
-container, Products writer and LiveDocs reader identities, and container-scoped
-roles. Its separate `hosting/` root deploys the baked image to the shared ACA
-environment and can be destroyed after a demo without deleting archive inputs.
-Products photo storage remains independent.
+The complete immutable Blob URL is in the manifest. Products CI verified both
+bundle and receipt by downloading and comparing bytes on an archive-job retry.
+The LiveDocs image build independently revalidates the selected source bundle.
 
-The old `ECommerceStore.Infrastructure` was renamed
-`-DEPRECATED-ECommerceStore.Infrastructure` and contains a legacy
-`foundations/livedocs` root. If it was applied, inspect its actual state and archive
-before provisioning: follow the new repository's archive adoption checklist.
-Do not create two Terraform owners or repoint retained manifests to an empty account.
+## One-time setup for image builds
 
-**Configure protected GitHub environments before applying reader federation.**
-In LiveDocs create:
+[ECommerceStore.Terraform](https://github.com/MichalBoczula/ECommerceStore.Terraform)
+owns all current Azure resources in one root/state, including the shared storage
+account, private `livedocs` container, ACA environment and LiveDocs app. No new
+Azure resources are needed for this report. Do not apply the older dedicated
+LiveDocs Terraform roots to these resources. Existing archives in other accounts
+are not moved or deleted; see [ADR-0007](adr/0007-shared-store-products-publication.md).
 
-- `livedocs-archive-build`: selected deployment branches `main` and any explicitly
-  supported development branches; no PR merge refs. The import workflow runs only
-  from main, even when targeting a version branch.
-- `livedocs-archive-pr`: require Mike/an authorized reviewer, disable administrator
-  bypass, and allow `refs/pull/*/merge`. Approve only trusted internal PRs. Keep
-  self-review available if Mike opens his own PRs. This protects the Azure OIDC
-  subject itself, rather than relying only on a condition in editable PR YAML.
-  A PR needing private inputs must receive this archive-read approval before CI
-  can complete. Fork PRs are rejected by the checked-in workflow.
+In **ECommerceStore.LiveDocs**, add this **repository Actions secret**:
 
-A bare `pull_request` federated credential is intentionally not created: fork PRs
-could otherwise request that subject in their own workflow. Build/import and PR
-readers use the two protected environment subjects. Neither environment deploys
-an application; its purpose is archive access protection.
+| Secret | Value |
+| --- | --- |
+| `LIVEDOCS_STORAGE_SAS_TOKEN` | Complete container SAS query string, including all fields and `sig` |
 
-From the new Terraform repository, provision the archive root following its
-README. Reader federation defaults off until the protected environments above
-exist. Then enable `enable_reader_federation`, review and apply a fresh archive
-plan, and read the non-secret output:
+The image reader only needs **read** permission on `livedocs`, HTTPS-only. The
+Products writer's existing container SAS also works for the first publication.
+Do not paste the token into Git, a manifest, an image argument or an issue.
+An expired token must be replaced before another image can be built.
 
-```powershell
-$archiveJson = (& $ecommerceTerraform '-chdir=archive' output -json archive_configuration) -join "`n"
-if ($LASTEXITCODE -ne 0) { throw 'Archive output lookup failed' }
-$archive = $archiveJson | ConvertFrom-Json
-$archive | Format-List
-```
+`LIVEDOCS_STORAGE_ACCOUNT` is an optional repository variable; the default is
+`stecproductsdevmb261013`. Keep the existing `DOCKERHUB_USERNAME` and
+`DOCKERHUB_TOKEN` publication secrets. Image CI needs no Azure client/tenant/
+subscription variables, OIDC federation or GitHub import App.
 
-Set **repository variables**, using the same archive account in both repositories:
+The workflow retains `livedocs-archive-pr` and `livedocs-archive-build` environments.
+If they have protection rules, approve the trusted PR's archive-read job as required.
+Fork PRs cannot read the private inputs. Only internal, reviewed workflow changes
+should receive access to the archive secret. The secret is passed to the Azure CLI
+prefetch step, never to the Docker build or runtime.
 
-| Variable | ProductsCatalog | ECommerceStore.LiveDocs |
-| --- | --- | --- |
-| `AZURE_SUBSCRIPTION_ID` | `subscription_id` | Same ID |
-| `AZURE_TENANT_ID` | `tenant_id` | Same ID |
-| `LIVEDOCS_STORAGE_ACCOUNT` | `storage_account_name` | Same account |
-| `LIVEDOCS_AZURE_CLIENT_ID` | `products_writer_client_id` | `reader_client_id` |
-| `LIVEDOCS_VERSION` | `v1` initially | Not used |
-| `LIVEDOCS_PUBLISH_ENABLED` | Set `true` after setup | Not used |
-| `LIVEDOCS_IMPORT_ENABLED` | Not used | Set `true` after the first successful manual import |
-| `LIVEDOCS_IMPORT_VERSION` | Not used | `v1` initially |
-| `LIVEDOCS_IMPORT_BRANCH` | Not used | `main` initially |
-| `LIVEDOCS_APP_ID` | Not used | GitHub App ID |
+## Publish and deploy
 
-The enable flags deliberately default off until Azure setup exists. Packaging and
-all existing service/image checks still run. Once publication is enabled, missing
-configuration or failed uploads fail the producer run. Nonempty LiveDocs manifests
-always require archive retrieval; there is no fallback to fixtures or skipped inputs.
+1. Confirm the producer run completed successfully and select its exact receipt
+   reference in an existing development version. Keep all retained references.
+2. Run the LiveDocs manifest PR checks, including private prefetch, real Allure
+   generation, production-container HTTP checks and image scan. Merge after they pass.
+3. Let main CI publish the tested image. Read the immutable digest and commit from
+   the `livedocs-image/image.json` artifact or publication summary.
+4. In ECommerceStore.Terraform, replace only `app_images.livedocs` with that digest,
+   retaining all other application image entries. Review and apply a fresh plan:
 
-Create a GitHub App with **Contents: read/write** and **Pull requests: read/write**,
-install it only in ECommerceStore.LiveDocs, generate its private key and save it
-as repository secret `LIVEDOCS_APP_PRIVATE_KEY`. No producer App token/PAT is needed.
-The App has no Azure or Infrastructure access. Existing Docker Hub secrets remain
-unchanged. OIDC uses IDs, not a long-lived Azure client secret or SAS.
+   ```powershell
+   terraform plan "-out=livedocs.tfplan"
+   terraform apply livedocs.tfplan
 
-## First publication and version branches
+   $liveDocsUrl = (terraform output -json app_urls | ConvertFrom-Json).livedocs
+   Invoke-RestMethod "$liveDocsUrl/health/ready" -TimeoutSec 180
+   Invoke-RestMethod "$liveDocsUrl/build-info.json" -TimeoutSec 180
+   Start-Process "$liveDocsUrl/livedoc/v1/products/"
+   ```
 
-1. Merge LiveDocs tooling, then Products' pinned integration and LiveDocs Terraform's
-   archive/identity configuration. Products can package while archive publication is off.
-2. Complete the setup above and enable Products archive publication. A new master
-   push runs full tests/build/security/image checks before uploading a real bundle.
-3. Wait for that producer workflow to finish successfully. In LiveDocs run
-   **Import documentation** from main, with `v1` and target branch `main`.
-4. Review its manifest PR and approve private archive reads in the PR environment.
-   Confirm full LiveDocs CI, merge, and inspect image publication metadata.
-5. Select the new digest through the LiveDocs Terraform hosting root. Enable scheduled
-   imports after this first verified handoff. GitHub schedules may be delayed;
-   manual import uses the same validation and is an immediate fallback.
+Compare `build-info.json.commitSha` with the selected LiveDocs image commit.
+The existing ACA changes its revision; no BFF routing or storage connection is
+needed by the running container. Blob uploads alone do not change a running report.
 
-For v2, create a LiveDocs development branch containing an explicit v2 manifest
-entry, retain v1, allow that branch in `livedocs-archive-build`, then set Products'
-`LIVEDOCS_VERSION=v2` and import version/target branch accordingly. PR and branch CI
-validate/generate the image; only main publishes SHA/latest production tags. Freeze
-released manifest entries through review. A source commit identifies the service
-image and documentation bundle; their separate CI/merge operations are not an
-atomic deployment transaction. Reviewed Terraform applies coordinate the selected service and documentation images.
+For v2, add an explicit development v2 manifest, retain v1, and select the producer
+receipt for v2. Released manifest versions cannot be changed or removed. Only main
+publishes production tags. Service and documentation publication remain separate
+operations; a source SHA links their inputs.
 
-## Retention and boundaries
+## Optional automated importer
 
-Preserve every bundle referenced by supported versions, plus any pending candidate
-PR. Versioning, soft delete and Terraform archive destruction guards aid retention;
-they are not a WORM policy. A legacy adopted archive may also retain its management lock. Blob Data Contributor can delete blobs. The publisher's
-no-overwrite and content checks do not prevent administrator deletion. Do not
-configure blanket expiry on referenced packages. Demo hosting teardown must retain
-the archive root, its resources and its state.
+The existing **Import documentation** workflow remains off for scheduled runs
+unless `LIVEDOCS_IMPORT_ENABLED=true`. It is not needed for the first manual
+manifest PR, and the SAS image-reader setup above does not configure it.
 
-Only synthetic test data should appear in acceptance attachments. Generated HTML
-is baked into the image, not committed to Git or uploaded from a running replica.
-Live Azure upload/import and ACA rollout require the operator setup above; mock
-regressions and PR CI alone do not prove that live RBAC has propagated.
+Its existing setup requires archive-reader OIDC variables
+`LIVEDOCS_AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` and
+`LIVEDOCS_STORAGE_ACCOUNT`, with access restricted to the protected
+`livedocs-archive-build` environment. It also requires `LIVEDOCS_APP_ID` and
+`LIVEDOCS_APP_PRIVATE_KEY` for an App installed only in LiveDocs with Contents and
+Pull requests read/write. Default `GITHUB_TOKEN` PR writes would suppress PR CI.
+Do not enable it without that separate configuration. No import identities or
+resources are provisioned by this publication change.
+
+The importer verifies successful producer master-push provenance, refuses ambiguous
+receipts or rollbacks, and opens a PR without merging or deploying. Discovery is
+main-owned; optional version/branch variables select an existing development target.
+
+## Retention
+
+Preserve every bundle referenced by a retained version and any pending candidate
+PR. Do not set blanket expiration on those blobs. The current archive shares the
+store's account and Terraform state: a full shared-root destroy removes it too.
+Keep the account/container and backend state when cleaning up application hosting.
+This change does not migrate any older archive.
+
+Acceptance attachments must contain synthetic data. The archive is private, but
+reports baked into a public image or served by public ACA are public. The runtime
+contains no Blob credentials, database connection, Java, Python or Allure CLI.

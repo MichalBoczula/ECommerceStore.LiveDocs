@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -16,7 +17,9 @@ from livedocs import (MAX_ARCHIVE, archive_url, materialize, package_bundle, rea
 def storage(account, container):
     if not re.fullmatch(r"[a-z0-9]{3,24}", account) or container != "livedocs":
         raise ValueError("Use a valid storage account and the dedicated livedocs container")
-    return ["--auth-mode", "login", "--account-name", account, "--container-name", container]
+    # Azure CLI reads the SAS from its environment; keep it out of command arguments.
+    auth = [] if os.environ.get("AZURE_STORAGE_SAS_TOKEN") else ["--auth-mode", "login"]
+    return [*auth, "--account-name", account, "--container-name", container]
 
 
 def blob_parts(url, account, container):
