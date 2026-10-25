@@ -16,6 +16,17 @@
             "sha256": "f64189b99cfe8355440b0b0c99c72576e263db3729104a40119ca9a198eeaf7d",
             "sizeBytes": 216581
           }
+        },
+        {
+          "project": "users",
+          "commitSha": "112c4be06a79ef1f0653e1e2d8d6de0538e7d611",
+          "generatedAt": "2026-10-25T16:16:52Z",
+          "workflowRunId": 40210725093,
+          "artifact": {
+            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/users/112c4be06a79ef1f0653e1e2d8d6de0538e7d611/43ea9b08bf925ec1138b624d607b4f36c8ef95776640c5a6941115988efbc6f3.zip",
+            "sha256": "43ea9b08bf925ec1138b624d607b4f36c8ef95776640c5a6941115988efbc6f3",
+            "sizeBytes": 334786
+          }
         }
       ]
     }

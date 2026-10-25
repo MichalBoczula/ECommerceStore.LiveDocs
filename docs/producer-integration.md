@@ -1,15 +1,20 @@
-# LD/5: Products to Blob to LiveDocs
+# LD/5: Service BDD reports to Blob to LiveDocs
 
 ## Delivery flow
 
-Products CI exports OpenAPI, business flows, validation policies, operation links,
-Reqnroll features and actual Allure results from one source checkout. Its pinned
-LiveDocs packaging workflow validates the source ZIP before the Products quality
-gate. Successful master image publication automatically uploads the bundle;
+Products and Users CI export OpenAPI, business flows, validation policies, operation
+links, Reqnroll features and actual Allure results from one source checkout. Their
+pinned LiveDocs packaging workflow validates the source ZIP before the producer
+quality gate. Successful master image publication automatically uploads the bundle;
 PRs never upload to Azure. There is no publication enable variable.
 
-The archive writer uploads `reports/products/<commit>/<sha256>.zip`, then a
-receipt at `candidates/v1/products/<run-id>-<sha256>.json` in private container
+| Project | Producer repository | Master workflow |
+| --- | --- | --- |
+| `products` | `MichalBoczula/ProductsCatalog` | `.github/workflows/dotnet.yml` |
+| `users` | `MichalBoczula/ECommerceStoreUsers` | `.github/workflows/ci.yml` |
+
+Each archive writer uploads `reports/<project>/<commit>/<sha256>.zip`, then a
+receipt at `candidates/v1/<project>/<run-id>-<sha256>.json` in private container
 `stecproductsdevmb261013/livedocs`. Retries download existing objects and compare
 bytes; different content is refused. Neither URLs nor receipts contain credentials.
 
@@ -38,6 +43,32 @@ The development v1 manifest selects successful Products master push
 The complete immutable Blob URL is in the manifest. Products CI verified both
 bundle and receipt by downloading and comparing bytes on an archive-job retry.
 The LiveDocs image build independently revalidates the selected source bundle.
+
+## Users publication setup
+
+Users uses the same container and package contract with project slug `users`.
+Its producer secret must be configured in **ECommerceStoreUsers** as
+`LIVEDOCS_STORAGE_SAS_TOKEN`: use the complete HTTPS-only container SAS query
+string with **read/create/write** permissions. The existing Products writer SAS
+can be reused. There is no new storage account, container, ACA or BFF route.
+
+The LiveDocs reader secret already configured for Products reads both projects.
+Users' real source bundle is selected in the development v1 manifest alongside
+the retained Products reference. It serves `/livedoc/v1/users/` and
+`/livedoc/v1/users/allure/` after a new LiveDocs image is deployed. Do not merge
+the Users manifest until the producer archive upload and LiveDocs private prefetch,
+Allure generation, production HTTP and image-scan checks pass.
+
+The first Users reference comes from master run
+[40210725093](https://github.com/MichalBoczula/ECommerceStoreUsers/actions/runs/40210725093),
+source commit `112c4be06a79ef1f0653e1e2d8d6de0538e7d611`. Its ZIP is 334786 bytes,
+with SHA-256 `43ea9b08bf925ec1138b624d607b4f36c8ef95776640c5a6941115988efbc6f3`.
+The complete stable Blob path is in the manifest. The draft manifest can be
+prepared from the producer's Actions artifact, but it must not be merged until
+that exact bundle is archived and the producer workflow finishes successfully.
+
+The optional importer below still discovers **Products only**; Users uses an
+explicit manifest PR. The producer uploads do not modify running reports.
 
 ## One-time setup for image builds
 
