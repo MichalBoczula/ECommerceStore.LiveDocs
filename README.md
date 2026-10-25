@@ -36,12 +36,17 @@ The development v1 manifest retains the Products bundle from master workflow
 run [40205595842](https://github.com/MichalBoczula/ProductsCatalog/actions/runs/40205595842)
 and adds Users from master workflow run
 [40210725093](https://github.com/MichalBoczula/ECommerceStoreUsers/actions/runs/40210725093).
+Orders / Invoices joins the same development v1 snapshot from master workflow run
+[40214951632](https://github.com/MichalBoczula/ECommerceStoreInvoice/actions/runs/40214951632).
+Exact source commits, workflow runs and archive digests are selected
+in `manifests/portal.json` and displayed on each project page.
 After deploying the new image, each project has a page and an Allure report:
 
 | Project | Documentation | Allure |
 | --- | --- | --- |
 | Products | `/livedoc/v1/products/` | `/livedoc/v1/products/allure/` |
 | Users | `/livedoc/v1/users/` | `/livedoc/v1/users/allure/` |
+| Orders / Invoices | `/livedoc/v1/invoices/` | `/livedoc/v1/invoices/allure/` |
 
 Test fixtures use separate manifests for v1 Products/Users and v2 Products,
 including a failed result. They are never used for the published production image.
@@ -233,7 +238,7 @@ should read [`AGENTS.md`](AGENTS.md) and [Definition of Done](docs/definition-of
 | LD/2 | Versioned manifests, archive tooling, Allure 2 and documentation pages — implemented |
 | LD/3 | Image handoff to LiveDocs Terraform — implemented |
 | LD/4 | Invoice-style README/ADRs, portable CI, security and quality gates — implemented |
-| LD/5 | Products and Users source references with SAS-backed image inputs; optional importer remains off |
+| LD/5 | Products, Users and Orders/Invoices source references with SAS-backed image inputs; optional importer remains off |
 
 [LD/5 setup and delivery flow](docs/producer-integration.md) describes the separate
 `livedocs` container, producer pin, archive access and optional scheduled imports.

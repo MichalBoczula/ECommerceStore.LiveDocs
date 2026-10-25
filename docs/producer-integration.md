@@ -2,8 +2,8 @@
 
 ## Delivery flow
 
-Products and Users CI export OpenAPI, business flows, validation policies, operation
-links, Reqnroll features and actual Allure results from one source checkout. Their
+Products, Users and Orders/Invoices CI export OpenAPI, business flows, validation
+policies, operation links, Reqnroll features and actual Allure results from one source checkout. Their
 pinned LiveDocs packaging workflow validates the source ZIP before the producer
 quality gate. Successful master image publication automatically uploads the bundle;
 PRs never upload to Azure. There is no publication enable variable.
@@ -12,6 +12,7 @@ PRs never upload to Azure. There is no publication enable variable.
 | --- | --- | --- |
 | `products` | `MichalBoczula/ProductsCatalog` | `.github/workflows/dotnet.yml` |
 | `users` | `MichalBoczula/ECommerceStoreUsers` | `.github/workflows/ci.yml` |
+| `invoices` | `MichalBoczula/ECommerceStoreInvoice` | `.github/workflows/ci.yml` |
 
 Each archive writer uploads `reports/<project>/<commit>/<sha256>.zip`, then a
 receipt at `candidates/v1/<project>/<run-id>-<sha256>.json` in private container
@@ -67,8 +68,33 @@ The complete stable Blob path is in the manifest. The draft manifest can be
 prepared from the producer's Actions artifact, but it must not be merged until
 that exact bundle is archived and the producer workflow finishes successfully.
 
-The optional importer below still discovers **Products only**; Users uses an
-explicit manifest PR. The producer uploads do not modify running reports.
+The optional importer below still discovers **Products only**; Users and
+Orders/Invoices use explicit manifest PRs. Producer uploads do not modify running reports.
+
+## Orders/Invoices publication setup
+
+The `invoices` project is displayed as **Orders / Invoices** and includes the
+service's cart, checkout, order status and invoice/PDF acceptance scenarios.
+Configure `LIVEDOCS_STORAGE_SAS_TOKEN` in **ECommerceStoreInvoice** using the same
+complete HTTPS-only `livedocs` container SAS with read/create/write permissions.
+The existing LiveDocs reader secret can read this project's bundles too.
+
+Reports are served at `/livedoc/v1/invoices/` and
+`/livedoc/v1/invoices/allure/` after the selected LiveDocs image is deployed.
+Retain Products and Users when adding the archived reference. The documentation
+archive stays in `livedocs`; business invoice PDFs stay in the existing private
+`invoices` container. No new Azure resources or runtime storage connection is needed.
+
+Prepare the reference from the exact master source bundle, then require successful
+producer upload and full LiveDocs private-input/report/container/image checks before
+merging. A draft manifest can be prepared while the producer secret is configured;
+missing archives block publication and leave the existing deployed reports intact.
+
+The first Orders/Invoices reference comes from master run
+[40214951632](https://github.com/MichalBoczula/ECommerceStoreInvoice/actions/runs/40214951632),
+source commit `43af2ef1720b3b66b0a5f7392d5321b4de5b7d87`. Its ZIP is 226359 bytes,
+with SHA-256 `8913724773b54e0e042a6326862845c24821c6401a42edbbdfbe33dc7b91b5d5`.
+The manifest contains the complete immutable target URL without credentials.
 
 ## One-time setup for image builds
 
