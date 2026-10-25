@@ -2,17 +2,19 @@
 
 ## Delivery flow
 
-Products, Users and Orders/Invoices CI export OpenAPI, business flows, validation
-policies, operation links, Reqnroll features and actual Allure results from one source checkout. Their
+Products, Users, Orders/Invoices and Payments CI export OpenAPI, business flows,
+validation policies, operation links, Gherkin features and actual Allure results
+from one source checkout. Their
 pinned LiveDocs packaging workflow validates the source ZIP before the producer
-quality gate. Successful master image publication automatically uploads the bundle;
+quality gate. Successful default-branch image publication automatically uploads the bundle;
 PRs never upload to Azure. There is no publication enable variable.
 
-| Project | Producer repository | Master workflow |
+| Project | Producer repository | Branch and workflow |
 | --- | --- | --- |
-| `products` | `MichalBoczula/ProductsCatalog` | `.github/workflows/dotnet.yml` |
-| `users` | `MichalBoczula/ECommerceStoreUsers` | `.github/workflows/ci.yml` |
-| `invoices` | `MichalBoczula/ECommerceStoreInvoice` | `.github/workflows/ci.yml` |
+| `products` | `MichalBoczula/ProductsCatalog` | `master`: `.github/workflows/dotnet.yml` |
+| `users` | `MichalBoczula/ECommerceStoreUsers` | `master`: `.github/workflows/ci.yml` |
+| `invoices` | `MichalBoczula/ECommerceStoreInvoice` | `master`: `.github/workflows/ci.yml` |
+| `payments` | `MichalBoczula/ECommerceStorePayments` | `main`: `.github/workflows/ci.yml` |
 
 Each archive writer uploads `reports/<project>/<commit>/<sha256>.zip`, then a
 receipt at `candidates/v1/<project>/<run-id>-<sha256>.json` in private container
@@ -68,8 +70,8 @@ The complete stable Blob path is in the manifest. The draft manifest can be
 prepared from the producer's Actions artifact, but it must not be merged until
 that exact bundle is archived and the producer workflow finishes successfully.
 
-The optional importer below still discovers **Products only**; Users and
-Orders/Invoices use explicit manifest PRs. Producer uploads do not modify running reports.
+The optional importer below still discovers **Products only**; Users,
+Orders/Invoices and Payments use explicit manifest PRs. Producer uploads do not modify running reports.
 
 ## Orders/Invoices publication setup
 
@@ -95,6 +97,34 @@ The first Orders/Invoices reference comes from master run
 source commit `43af2ef1720b3b66b0a5f7392d5321b4de5b7d87`. Its ZIP is 226359 bytes,
 with SHA-256 `8913724773b54e0e042a6326862845c24821c6401a42edbbdfbe33dc7b91b5d5`.
 The manifest contains the complete immutable target URL without credentials.
+
+## Payments publication setup
+
+Payments uses `pytest-bdd` with pinned `allure-pytest-bdd` 2.16.1. It records BDD
+features, scenarios, outline examples and steps during its existing Acceptance
+suite; the same run still checks ordinary API tests, JUnit and coverage. Its
+database-free exporter projects flows and policies from the existing validated
+operation graph. The shared source ZIP and immutable archive contract are the same
+as the .NET services.
+
+The producer uploads only after its successful `main` container publication and
+final gate. Repository secret `LIVEDOCS_STORAGE_SAS_TOKEN` supplies the complete
+HTTPS-only read/create/write container SAS. The existing LiveDocs reader secret
+reads all four projects. Select the exact uploaded `payments` reference alongside
+the three existing references; require successful producer and full LiveDocs checks
+before merging the manifest PR.
+
+The report is served at `/livedoc/v1/payments/` and
+`/livedoc/v1/payments/allure/` after a new LiveDocs image digest is deployed.
+Documentation requires no runtime Blob or Stripe setting, new Azure resource or
+deployment wrapper. A source upload alone does not update a running report.
+
+The first Payments reference comes from main run
+[40219243830](https://github.com/MichalBoczula/ECommerceStorePayments/actions/runs/40219243830),
+source commit `ab868c98940741ef6422dfafcab71134f3e4b8e3`. Its ZIP is 105830 bytes,
+with SHA-256 `bd1b5998877dd95b6a2c0e8cad56faadf64910b15855eccde32e31bb3c38bc1c`.
+It contains 51 passed BDD scenarios across five feature files. The manifest retains
+the other three source references and records the immutable URL without credentials.
 
 ## One-time setup for image builds
 

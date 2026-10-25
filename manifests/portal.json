@@ -18,6 +18,17 @@
           }
         },
         {
+          "project": "payments",
+          "commitSha": "ab868c98940741ef6422dfafcab71134f3e4b8e3",
+          "generatedAt": "2026-10-25T18:02:34Z",
+          "workflowRunId": 40219243830,
+          "artifact": {
+            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/payments/ab868c98940741ef6422dfafcab71134f3e4b8e3/bd1b5998877dd95b6a2c0e8cad56faadf64910b15855eccde32e31bb3c38bc1c.zip",
+            "sha256": "bd1b5998877dd95b6a2c0e8cad56faadf64910b15855eccde32e31bb3c38bc1c",
+            "sizeBytes": 105830
+          }
+        },
+        {
           "project": "products",
           "commitSha": "48154e5566402b65cb686c4c7eda6bed1d30d707",
           "generatedAt": "2026-10-25T15:15:45Z",
