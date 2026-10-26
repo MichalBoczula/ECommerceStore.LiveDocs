@@ -32,14 +32,16 @@ project requires a registry and manifest entry, with no Nginx routing change.
 Development versions can advance; released versions cannot be changed or removed.
 The `latest` navigation pointer chooses a version without overwriting its history.
 
-The development v1 manifest selects the Products BDD-01 bundle from master workflow
-run [40303869988](https://github.com/MichalBoczula/ProductsCatalog/actions/runs/40303869988)
+The development v1 manifest selects the Products BDD-09 bundle from master workflow
+run [40394312976](https://github.com/MichalBoczula/ProductsCatalog/actions/runs/40394312976)
 and retains Users from master workflow run
 [40210725093](https://github.com/MichalBoczula/ECommerceStoreUsers/actions/runs/40210725093).
 Orders / Invoices joins the same development v1 snapshot from master workflow run
 [40214951632](https://github.com/MichalBoczula/ECommerceStoreInvoice/actions/runs/40214951632).
 Payments uses main workflow run
 [40219243830](https://github.com/MichalBoczula/ECommerceStorePayments/actions/runs/40219243830).
+[Products BDD-09 audit](docs/products-bdd09-audit.md) records the 76 BDD cases,
+140 HTTP exchanges, attachment integrity and explicit proof limits.
 Exact source commits, workflow runs and archive digests are selected
 in `manifests/portal.json` and displayed on each project page.
 After deploying the new image, each project has a page and an Allure report:
@@ -173,7 +175,8 @@ requires at least **70% line coverage of `scripts/livedocs.py`**, with no lines
 excluded. This is generator coverage, not a percentage for all scripts or Nginx.
 
 Actual Docker tests generate Allure fixtures and check version/project routes,
-assets, test cases, attachments, 404s and commit identity. The host must run as
+assets, every rendered case and attachment, 404s and commit identity. Each report
+case inventory must match its summary; attachments labelled JSON must parse. The host must run as
 101:101 with a read-only root and no build toolchain. A hidden site returns
 readiness 503 while liveness remains 200. See [local verification](docs/local-verification.md)
 for focused commands and artifact paths.
@@ -245,3 +248,4 @@ should read [`AGENTS.md`](AGENTS.md) and [Definition of Done](docs/definition-of
 
 [LD/5 setup and delivery flow](docs/producer-integration.md) describes the separate
 `livedocs` container, producer pin, archive access and optional scheduled imports.
+

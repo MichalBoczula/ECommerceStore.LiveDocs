@@ -128,6 +128,34 @@ class SmokeTests(unittest.TestCase):
             with self.assertRaisesRegex(AssertionError, "missing content must return 404"):
                 smoke.check("http://host", "a" * 40)
 
+    def test_all_report_cases_and_their_json_attachments_are_checked(self):
+        for failure in [None, "missing-case", "missing-attachment", "invalid-json"]:
+            def report(base, path):
+                if path.endswith("suites.json"):
+                    payload = {"children": [{"uid": "first", "status": "passed"}, {"uid": "later", "status": "passed"}]}
+                elif path.endswith("test-cases/first.json"):
+                    payload = {"attachments": []}
+                elif path.endswith("test-cases/later.json"):
+                    if failure == "missing-case":
+                        return 404, {}, b""
+                    payload = {"attachments": [{"source": "later.json", "size": 1, "type": "application/json"}]}
+                else:
+                    return (404 if failure == "missing-attachment" else 200), {}, b"{" if failure == "invalid-json" else b"0"
+                return 200, {"Content-Type": "application/json"}, json.dumps(payload).encode()
+            with self.subTest(failure=failure), patch.object(smoke, "request", side_effect=report) as request:
+                if failure:
+                    with self.assertRaises((AssertionError, ValueError)):
+                        smoke.check_report_cases("http://host", "/project/", 2)
+                else:
+                    smoke.check_report_cases("http://host", "/project/", 2)
+                    self.assertEqual(request.call_args.args[1], "/project/allure/data/attachments/later.json")
+
+    def test_report_case_inventory_must_match_summary(self):
+        with patch.object(smoke, "json_response", return_value={"children": [{"uid": "first", "status": "passed"}]}):
+            with self.assertRaisesRegex(AssertionError, "Incomplete or duplicate"):
+                smoke.check_report_cases("http://host", "/project/", 2)
+
 
 if __name__ == "__main__":
     unittest.main()
+
