@@ -67,10 +67,10 @@ and verified ZIP inputs in the build context, defaulting to `manifests` and
 `build-input/cache`. `VCS_REF` and `BUILD_DATE` supply image identity. Never pass
 credentials as build arguments. See [the artifact contract](artifact-contract.md).
 
-The production development v1 selects the Products bundle from successful run
-40205595842. Image CI requires `LIVEDOCS_STORAGE_SAS_TOKEN` in this repository and
-fetches it from `stecproductsdevmb261013/livedocs` before Docker runs. The resulting
-image adds `/livedoc/v1/products/` and `/livedoc/v1/products/allure/`; replace
-`app_images.livedocs` with its published digest in the shared Terraform root.
-See [producer integration](producer-integration.md). Missing inputs fail the build;
-uploading a bundle alone does not update the deployed image.
+The development v1 Products snapshot selects master workflow run
+40394312976, source commit `ab8fe05e2fee4870c6b1255a8f4d6e5d49d90f5e`.
+The [BDD-09 audit](products-bdd09-audit.md) records its exact archive, verification
+and limits. Image CI requires `LIVEDOCS_STORAGE_SAS_TOKEN` and reads the private
+archive before Docker. Replace `app_images.livedocs` with the successful main
+publication's immutable digest in the shared Terraform root. Uploading a bundle or
+merging a manifest alone does not update the running Azure revision.

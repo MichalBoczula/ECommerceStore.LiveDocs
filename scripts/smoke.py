@@ -27,13 +27,11 @@ def json_response(base_url, path):
     return json.loads(body)
 
 
-def first_case(tree):
+def case_ids(tree):
     if "status" in tree:
-        return tree["uid"]
+        yield tree["uid"]
     for child in tree.get("children", []):
-        result = first_case(child)
-        if result:
-            return result
+        yield from case_ids(child)
 
 
 def attachments(value):
@@ -59,6 +57,19 @@ def request(base_url, path):
         response = error
     with response:
         return response.code, response.headers, response.read()
+
+
+def check_report_cases(base_url, path, expected_total):
+    cases = list(case_ids(json_response(base_url, path + "allure/data/suites.json")))
+    assert len(cases) == len(set(cases)) == expected_total, f"Incomplete or duplicate report cases: {path}"
+    for case_id in cases:
+        case = json_response(base_url, path + f"allure/data/test-cases/{case_id}.json")
+        for attachment in attachments(case):
+            url = path + "allure/data/attachments/" + attachment["source"]
+            actual, _, content = request(base_url, url)
+            assert actual == 200 and len(content) == attachment["size"], f"Missing/truncated report attachment: {url}"
+            if attachment.get("type") == "application/json":
+                json.loads(content)
 
 
 def check(base_url, expected_sha=None):
@@ -105,13 +116,7 @@ def check(base_url, expected_sha=None):
                 assert actual == 200 and content, f"Missing Allure asset: {url}"
             summary = json_response(base_url, path + "allure/widgets/summary.json")
             assert summary["statistic"]["total"] > 0, f"Empty report: {path}"
-            case_id = first_case(json_response(base_url, path + "allure/data/suites.json"))
-            assert case_id, f"Missing generated test case: {path}"
-            case = json_response(base_url, path + f"allure/data/test-cases/{case_id}.json")
-            for attachment in attachments(case):
-                url = path + "allure/data/attachments/" + attachment["source"]
-                actual, _, content = request(base_url, url)
-                assert actual == 200 and len(content) == attachment["size"], f"Missing/truncated report attachment: {url}"
+            check_report_cases(base_url, path, summary["statistic"]["total"])
             for suffix in ["missing.js", "allure/data/missing.json"]:
                 actual, _, _ = request(base_url, path + suffix)
                 assert actual == 404, f"Missing report asset returned {actual}: {path + suffix}"
@@ -145,3 +150,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
