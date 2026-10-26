@@ -30,13 +30,13 @@
         },
         {
           "project": "products",
-          "commitSha": "48154e5566402b65cb686c4c7eda6bed1d30d707",
-          "generatedAt": "2026-10-25T15:15:45Z",
-          "workflowRunId": 40205595842,
+          "commitSha": "89eab71786db1341ac63554c5bcc824980b4fe51",
+          "generatedAt": "2026-10-26T10:06:00Z",
+          "workflowRunId": 40303869988,
           "artifact": {
-            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/products/48154e5566402b65cb686c4c7eda6bed1d30d707/f64189b99cfe8355440b0b0c99c72576e263db3729104a40119ca9a198eeaf7d.zip",
-            "sha256": "f64189b99cfe8355440b0b0c99c72576e263db3729104a40119ca9a198eeaf7d",
-            "sizeBytes": 216581
+            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/products/89eab71786db1341ac63554c5bcc824980b4fe51/2311fca7568260fc275b611b499e386b3f407ba984fff252f156122fac139fbe.zip",
+            "sha256": "2311fca7568260fc275b611b499e386b3f407ba984fff252f156122fac139fbe",
+            "sizeBytes": 218017
           }
         },
         {

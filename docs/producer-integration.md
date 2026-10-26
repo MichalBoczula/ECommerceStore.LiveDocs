@@ -32,20 +32,27 @@ its existing snapshot.
 ## Current Products snapshot
 
 The development v1 manifest selects successful Products master push
-[40205595842](https://github.com/MichalBoczula/ProductsCatalog/actions/runs/40205595842):
+[40303869988](https://github.com/MichalBoczula/ProductsCatalog/actions/runs/40303869988):
 
 | Field | Value |
 | --- | --- |
-| Source commit | `48154e5566402b65cb686c4c7eda6bed1d30d707` |
-| Bundle SHA-256 | `f64189b99cfe8355440b0b0c99c72576e263db3729104a40119ca9a198eeaf7d` |
-| Bundle size | 216581 bytes |
+| Source commit | `89eab71786db1341ac63554c5bcc824980b4fe51` |
+| Bundle SHA-256 | `2311fca7568260fc275b611b499e386b3f407ba984fff252f156122fac139fbe` |
+| Bundle size | 218017 bytes |
 | Storage account / container | `stecproductsdevmb261013` / `livedocs` |
 | Project page | `/livedoc/v1/products/` |
 | Allure report | `/livedoc/v1/products/allure/` |
 
-The complete immutable Blob URL is in the manifest. Products CI verified both
-bundle and receipt by downloading and comparing bytes on an archive-job retry.
-The LiveDocs image build independently revalidates the selected source bundle.
+BDD-01 checks response coverage against complete endpoint registrations and
+exported OpenAPI. This bundle contains 64 passed BDD cases, including DELETE
+returning 404 after physical removal, with no additional delete history.
+Products tracks BDD-02 through BDD-09 separately: this snapshot does not certify
+complete attachments, schema validation or RAG semantics. BDD-09 is the final
+structure/evidence/contracts audit after the intervening packages.
+
+The complete immutable Blob URL is in the manifest. Require successful producer
+archive upload and its matching receipt before merging this selection. The
+LiveDocs image build independently revalidates the selected private source bundle.
 
 ## Users publication setup
 

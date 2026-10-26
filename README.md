@@ -32,9 +32,9 @@ project requires a registry and manifest entry, with no Nginx routing change.
 Development versions can advance; released versions cannot be changed or removed.
 The `latest` navigation pointer chooses a version without overwriting its history.
 
-The development v1 manifest retains the Products bundle from master workflow
-run [40205595842](https://github.com/MichalBoczula/ProductsCatalog/actions/runs/40205595842)
-and adds Users from master workflow run
+The development v1 manifest selects the Products BDD-01 bundle from master workflow
+run [40303869988](https://github.com/MichalBoczula/ProductsCatalog/actions/runs/40303869988)
+and retains Users from master workflow run
 [40210725093](https://github.com/MichalBoczula/ECommerceStoreUsers/actions/runs/40210725093).
 Orders / Invoices joins the same development v1 snapshot from master workflow run
 [40214951632](https://github.com/MichalBoczula/ECommerceStoreInvoice/actions/runs/40214951632).
