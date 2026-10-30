@@ -19,6 +19,7 @@ REQUIRED_SOURCES = {"sources/openapi.json", "sources/flows.json",
                     "sources/validation-policies.json", "sources/operation-links.json"}
 MAX_ARCHIVE = 100 * 1024 * 1024
 MAX_UNPACKED = 500 * 1024 * 1024
+MAX_BUNDLE_FILES = 50_000
 
 
 def read_json(path):
@@ -131,7 +132,7 @@ def safe_path(name):
 def unpack(archive, destination):
     with zipfile.ZipFile(archive) as bundle:
         entries = bundle.infolist()
-        if len(entries) > 10000 or sum(entry.file_size for entry in entries) > MAX_UNPACKED:
+        if len(entries) > MAX_BUNDLE_FILES + 1 or sum(entry.file_size for entry in entries) > MAX_UNPACKED:
             raise ValueError("Archive exceeds extraction limits")
         names = set()
         for entry in entries:

@@ -7,10 +7,12 @@ import tempfile
 import unittest
 import warnings
 import zipfile
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+from jsonschema import ValidationError
 
 from bundle_fixtures import create, fixture, reference
-from livedocs import archive_url, assemble, materialize, package_bundle, read_json, unpack, validate_bundle, validate_manifests
+from livedocs import MAX_ARCHIVE, MAX_BUNDLE_FILES, MAX_UNPACKED, validate_schema, archive_url, assemble, materialize, package_bundle, read_json, unpack, validate_bundle, validate_manifests
 
 
 class AssemblyTests(unittest.TestCase):
@@ -108,6 +110,58 @@ class AssemblyTests(unittest.TestCase):
         next((source / "allure-results").glob("*-attachment.json")).unlink()
         with self.assertRaisesRegex(ValueError, "attachment"):
             package_bundle(source, metadata, self.root / "missing.zip")
+
+    def test_large_evidence_bundle_round_trips_above_the_former_file_limit(self):
+        source = self.root / "large-source"
+        metadata = fixture(source)
+        result_path = next((source / "allure-results").glob("*-result.json"))
+        result = read_json(result_path)
+        for index in range(10_001):
+            name = f"evidence-{index:05d}-attachment.json"
+            (source / "allure-results" / name).write_text('{"evidence":true}')
+            result["attachments"].append({"name": f"Evidence {index}", "source": name, "type": "application/json"})
+        result_path.write_text(json.dumps(result))
+        archive = self.root / "large.zip"
+        descriptor = package_bundle(source, metadata, archive)
+        self.assertEqual(descriptor["sizeBytes"], archive.stat().st_size)
+        extracted = self.root / "large-extracted"
+        unpack(archive, extracted)
+        actual = validate_bundle(extracted)
+        self.assertGreater(len(actual["files"]), 10_000)
+        self.assertEqual(len(actual["files"]), 10_008)
+        self.assertEqual(len(read_json(next((extracted / "allure-results").glob("*-result.json")))["attachments"]), 10_002)
+        (extracted / "allure-results/evidence-10000-attachment.json").write_text('{"tampered":true}')
+        with self.assertRaisesRegex(ValueError, "checksum"):
+            validate_bundle(extracted)
+
+    def test_schema_accepts_its_bounded_file_limit_and_rejects_the_next_entry(self):
+        metadata = fixture(self.root / "limit-source")
+        metadata["files"] = {f"allure-results/{index}.json": {"sha256": "a" * 64, "sizeBytes": 1}
+                             for index in range(MAX_BUNDLE_FILES)}
+        self.assertEqual(MAX_BUNDLE_FILES, 50_000)
+        validate_schema(metadata, "bundle")
+        metadata["files"]["one-too-many.json"] = {"sha256": "b" * 64, "sizeBytes": 1}
+        with self.assertRaises(ValidationError):
+            validate_schema(metadata, "bundle")
+
+    def test_extraction_counts_the_manifest_and_rejects_over_limit_before_writing(self):
+        self.assertEqual(MAX_ARCHIVE, 100 * 1024 * 1024)
+        self.assertEqual(MAX_UNPACKED, 500 * 1024 * 1024)
+        accepted = MagicMock()
+        accepted.__enter__.return_value.infolist.return_value = [zipfile.ZipInfo("bundle.json")] + [
+            zipfile.ZipInfo(f"allure-results/{index}.json") for index in range(MAX_BUNDLE_FILES)]
+        with patch("livedocs.zipfile.ZipFile", return_value=accepted):
+            unpack("boundary.zip", self.root / "accepted-boundary")
+        accepted.__enter__.return_value.extractall.assert_called_once_with(self.root / "accepted-boundary")
+        entry = MagicMock(file_size=0)
+        archive = MagicMock()
+        archive.__enter__.return_value.infolist.return_value = [entry] * (MAX_BUNDLE_FILES + 2)
+        destination = self.root / "over-limit"
+        with patch("livedocs.zipfile.ZipFile", return_value=archive):
+            with self.assertRaisesRegex(ValueError, "extraction limits"):
+                unpack("not-opened.zip", destination)
+        archive.__enter__.return_value.extractall.assert_not_called()
+        self.assertFalse(destination.exists())
 
     def test_signed_and_untrusted_archive_urls_are_rejected(self):
         for url in ["https://example.com/report.zip", "https://account.blob.core.windows.net/reports/a.zip?sig=secret",
