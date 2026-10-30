@@ -24,6 +24,10 @@ inventory, checksums and attachments before generating documentation. It display
 failed BDD results faithfully; host readiness is independent of test status.
 See the [artifact contract](docs/artifact-contract.md).
 
+Each source bundle can retain 50,000 inventoried files plus its manifest, including
+individual HTTP/JSON evidence and native Gherkin tables. Compressed/unpacked byte
+budgets and archive integrity checks remain enforced; see ADR-0002.
+
 ### Versioned documentation
 
 Each image contains every retained manifest snapshot. `/livedoc/v1/products/`,

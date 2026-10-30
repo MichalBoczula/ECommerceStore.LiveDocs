@@ -10,7 +10,7 @@
     "generatedAt": {"type": "string", "format": "date-time"},
     "workflowRunId": {"type": "integer", "minimum": 1},
     "files": {
-      "type": "object", "minProperties": 1, "maxProperties": 10000,
+      "type": "object", "minProperties": 1, "maxProperties": 50000,
       "additionalProperties": {
         "type": "object", "additionalProperties": false,
         "required": ["sha256", "sizeBytes"],

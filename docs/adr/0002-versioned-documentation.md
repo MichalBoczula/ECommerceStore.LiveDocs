@@ -44,3 +44,16 @@ and deployment (ADR-0003). LD/5 connects Products first, then other producers.
 - Overwrite one latest report: loses release and project history.
 - Store generated reports in Git: grows the repository with rebuildable outputs and attachments.
 - Rebuild releases from short-lived workflow artifacts: loses required inputs when those artifacts expire.
+
+## Bounded evidence capacity (2026-10-30)
+
+Payments PAY-BDD-10 exceeds the former 10,000-file inventory limit while retaining
+all prior cases and every HTTP/native-table attachment. Support 50,000 inventoried
+files plus one manifest entry, with matching schema and extraction boundaries.
+The 100 MiB compressed and 500 MiB unpacked byte budgets, path/link/encryption
+checks, closed inventory, checksums and attachment checks remain enforced.
+Existing schema-version-one bundles and immutable manifests remain compatible.
+A real package/extract/validate regression crosses the former limit; exact upper
+and next-entry checks retain a finite capacity boundary. Producer workflows must
+pin this tooling revision before publishing larger bundles, and LiveDocs build/
+import tooling must include it before selecting those archives.

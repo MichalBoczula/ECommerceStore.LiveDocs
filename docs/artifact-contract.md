@@ -20,6 +20,13 @@ allure-results/<raw Allure 2 files>
 be JSON objects or arrays. At least one feature and one completed Allure result
 are required. Failed, broken and skipped results remain visible.
 
+A bundle supports at most **50,000 inventoried files**, plus its `bundle.json`
+manifest. ZIP extraction uses the same bound including the one manifest entry.
+The compressed 100 MiB and unpacked 500 MiB limits remain; paths, duplicate
+entries, links, encryption, file hashes and attachment references are validated.
+This accommodates complete request/response and native-table evidence without
+discarding cases or combining away individual exchanges.
+
 Create a metadata file outside the staged directory:
 
 ```json
