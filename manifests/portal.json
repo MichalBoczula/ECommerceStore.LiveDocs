@@ -8,46 +8,46 @@
       "projects": [
         {
           "project": "invoices",
-          "commitSha": "43af2ef1720b3b66b0a5f7392d5321b4de5b7d87",
-          "generatedAt": "2026-10-25T17:11:34Z",
-          "workflowRunId": 40214951632,
+          "commitSha": "41f5f0b9976ecfd87916de3a568515da94de7c12",
+          "generatedAt": "2026-11-12T21:27:06Z",
+          "workflowRunId": 43309304498,
           "artifact": {
-            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/invoices/43af2ef1720b3b66b0a5f7392d5321b4de5b7d87/8913724773b54e0e042a6326862845c24821c6401a42edbbdfbe33dc7b91b5d5.zip",
-            "sha256": "8913724773b54e0e042a6326862845c24821c6401a42edbbdfbe33dc7b91b5d5",
-            "sizeBytes": 226359
+            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/invoices/41f5f0b9976ecfd87916de3a568515da94de7c12/5aff95dae445964842f23797c104b1ae1e1ea936d30194ed44e835d3c6ac187d.zip",
+            "sha256": "5aff95dae445964842f23797c104b1ae1e1ea936d30194ed44e835d3c6ac187d",
+            "sizeBytes": 10927983
           }
         },
         {
           "project": "payments",
-          "commitSha": "ab868c98940741ef6422dfafcab71134f3e4b8e3",
-          "generatedAt": "2026-10-25T18:02:34Z",
-          "workflowRunId": 40219243830,
+          "commitSha": "4b8e375dbc5a0092b2ec88c0fd8a51ee59fdcee8",
+          "generatedAt": "2026-11-12T01:13:51Z",
+          "workflowRunId": 43131771989,
           "artifact": {
-            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/payments/ab868c98940741ef6422dfafcab71134f3e4b8e3/bd1b5998877dd95b6a2c0e8cad56faadf64910b15855eccde32e31bb3c38bc1c.zip",
-            "sha256": "bd1b5998877dd95b6a2c0e8cad56faadf64910b15855eccde32e31bb3c38bc1c",
-            "sizeBytes": 105830
+            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/payments/4b8e375dbc5a0092b2ec88c0fd8a51ee59fdcee8/bf55c835beb7caa70db6d2d734fcac931b0ebdddaf90788cc26ee4ce1a95f969.zip",
+            "sha256": "bf55c835beb7caa70db6d2d734fcac931b0ebdddaf90788cc26ee4ce1a95f969",
+            "sizeBytes": 26049377
           }
         },
         {
           "project": "products",
-          "commitSha": "ab8fe05e2fee4870c6b1255a8f4d6e5d49d90f5e",
-          "generatedAt": "2026-10-26T20:24:44Z",
-          "workflowRunId": 40394312976,
+          "commitSha": "71f8a59f1d2cee84a90247de305901c6cb5dc7a6",
+          "generatedAt": "2026-11-09T18:59:53Z",
+          "workflowRunId": 42677741096,
           "artifact": {
-            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/products/ab8fe05e2fee4870c6b1255a8f4d6e5d49d90f5e/9625b79583bec33425fd2ca7c1cc43b0a4f323483698614534fbdcf0b25d5da6.zip",
-            "sha256": "9625b79583bec33425fd2ca7c1cc43b0a4f323483698614534fbdcf0b25d5da6",
-            "sizeBytes": 941982
+            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/products/71f8a59f1d2cee84a90247de305901c6cb5dc7a6/3778159f7c3579610bfb0fd76c0068dbe11e7e7e547c0c2a7fe251ab3d548c53.zip",
+            "sha256": "3778159f7c3579610bfb0fd76c0068dbe11e7e7e547c0c2a7fe251ab3d548c53",
+            "sizeBytes": 945608
           }
         },
         {
           "project": "users",
-          "commitSha": "112c4be06a79ef1f0653e1e2d8d6de0538e7d611",
-          "generatedAt": "2026-10-25T16:16:52Z",
-          "workflowRunId": 40210725093,
+          "commitSha": "a654c3feb41dbb87bf1274743749007761cdf9dc",
+          "generatedAt": "2026-11-12T19:54:20Z",
+          "workflowRunId": 43294298870,
           "artifact": {
-            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/users/112c4be06a79ef1f0653e1e2d8d6de0538e7d611/43ea9b08bf925ec1138b624d607b4f36c8ef95776640c5a6941115988efbc6f3.zip",
-            "sha256": "43ea9b08bf925ec1138b624d607b4f36c8ef95776640c5a6941115988efbc6f3",
-            "sizeBytes": 334786
+            "url": "https://stecproductsdevmb261013.blob.core.windows.net/livedocs/reports/users/a654c3feb41dbb87bf1274743749007761cdf9dc/197edf5fd6b803dcd88ee2a68c5260d00d41a856672b8744404f69617c331160.zip",
+            "sha256": "197edf5fd6b803dcd88ee2a68c5260d00d41a856672b8744404f69617c331160",
+            "sizeBytes": 8646207
           }
         }
       ]
