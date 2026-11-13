@@ -36,15 +36,17 @@ project requires a registry and manifest entry, with no Nginx routing change.
 Development versions can advance; released versions cannot be changed or removed.
 The `latest` navigation pointer chooses a version without overwriting its history.
 
-The development v1 manifest selects the Products BDD-09 bundle from master workflow
-run [40394312976](https://github.com/MichalBoczula/ProductsCatalog/actions/runs/40394312976)
-and retains Users from master workflow run
-[40210725093](https://github.com/MichalBoczula/ECommerceStoreUsers/actions/runs/40210725093).
-Orders / Invoices joins the same development v1 snapshot from master workflow run
-[40214951632](https://github.com/MichalBoczula/ECommerceStoreInvoice/actions/runs/40214951632).
-Payments uses main workflow run
-[40219243830](https://github.com/MichalBoczula/ECommerceStorePayments/actions/runs/40219243830).
-[Products BDD-09 audit](docs/products-bdd09-audit.md) records the 76 BDD cases,
+The development v1 manifest selects archived reports from the following successful
+producer runs.
+
+| Project | Source CI run | Passed BDD cases |
+| --- | --- | ---: |
+| Products | [42677741096](https://github.com/MichalBoczula/ProductsCatalog/actions/runs/42677741096) | 76 |
+| Users | [43294298870](https://github.com/MichalBoczula/ECommerceStoreUsers/actions/runs/43294298870) | 279 |
+| Orders / Invoices | [43309304498](https://github.com/MichalBoczula/ECommerceStoreInvoice/actions/runs/43309304498) | 321 |
+| Payments | [43131771989](https://github.com/MichalBoczula/ECommerceStorePayments/actions/runs/43131771989) | 391 |
+
+The [Products BDD-09 audit](docs/products-bdd09-audit.md) records the original audit of 76 BDD cases,
 140 HTTP exchanges, attachment integrity and explicit proof limits.
 Exact source commits, workflow runs and archive digests are selected
 in `manifests/portal.json` and displayed on each project page.
